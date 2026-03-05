@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NI-ZU - ニーズ検索エンジン</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <h1 class="logo">NI-ZU</h1>
+            <p class="tagline">人のニーズを見つける検索エンジン</p>
+        </div>
+    </header>
+
+    <main>
+        <section class="search-section">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="キーワードで人のニーズを検索（例：健康、仕事、お金）" autocomplete="off">
+                <button id="searchBtn">検索</button>
+            </div>
+            <div class="filters">
+                <button class="filter-btn active" data-category="all">すべて</button>
+                <button class="filter-btn" data-category="health">健康</button>
+                <button class="filter-btn" data-category="work">仕事・キャリア</button>
+                <button class="filter-btn" data-category="money">お金</button>
+                <button class="filter-btn" data-category="relationship">人間関係</button>
+                <button class="filter-btn" data-category="lifestyle">生活</button>
+                <button class="filter-btn" data-category="education">学び</button>
+                <button class="filter-btn" data-category="tech">テクノロジー</button>
+            </div>
+        </section>
+
+        <section class="stats-section">
+            <div class="stat-card">
+                <span class="stat-number" id="totalNeeds">0</span>
+                <span class="stat-label">登録ニーズ数</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="totalCategories">8</span>
+                <span class="stat-label">カテゴリ</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="searchCount">0</span>
+                <span class="stat-label">検索結果</span>
+            </div>
+        </section>
+
+        <section class="trending-section" id="trendingSection">
+            <h2>トレンドのニーズ</h2>
+            <div class="trending-tags" id="trendingTags"></div>
+        </section>
+
+        <section class="results-section">
+            <div id="results" class="results-grid"></div>
+        </section>
+
+        <section class="add-section">
+            <h2>新しいニーズを登録する</h2>
+            <form id="addNeedForm">
+                <input type="text" id="needTitle" placeholder="ニーズのタイトル" required>
+                <textarea id="needDescription" placeholder="詳しい説明" required></textarea>
+                <select id="needCategory" required>
+                    <option value="">カテゴリを選択</option>
+                    <option value="health">健康</option>
+                    <option value="work">仕事・キャリア</option>
+                    <option value="money">お金</option>
+                    <option value="relationship">人間関係</option>
+                    <option value="lifestyle">生活</option>
+                    <option value="education">学び</option>
+                    <option value="tech">テクノロジー</option>
+                </select>
+                <div class="urgency-selector">
+                    <label>緊急度:</label>
+                    <input type="range" id="needUrgency" min="1" max="5" value="3">
+                    <span id="urgencyLabel">普通</span>
+                </div>
+                <button type="submit">登録する</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>NI-ZU - 人のニーズを可視化するプラットフォーム</p>
+    </footer>
+
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
