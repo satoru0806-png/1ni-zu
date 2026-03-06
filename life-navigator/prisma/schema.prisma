@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Dream {
+  id        Int      @id @default(autoincrement())
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model DayLog {
+  id               Int      @id @default(autoincrement())
+  date             String   @unique // YYYY-MM-DD
+  mit1             String?
+  mit2             String?
+  mit3             String?
+  doneNote         String?  // できたこと
+  gratitudeNote    String?  // 感謝
+  tomorrowPlan     String?  // 明日やること
+  relationshipScore Int     @default(50)
+  moneyScore       Int      @default(50)
+  workScore        Int      @default(50)
+  healthScore      Int      @default(50)
+  memoRaw          String?
+  memoSummary      String?
+  memoTasksJson    String?  // JSON string of extracted tasks
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
