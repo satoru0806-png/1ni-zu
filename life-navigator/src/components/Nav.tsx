@@ -3,11 +3,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const tabs = [
-  { href: "/dashboard", label: "Home", icon: "H" },
-  { href: "/today", label: "Today", icon: "T" },
-  { href: "/review", label: "Review", icon: "R" },
-  { href: "/history", label: "History", icon: "L" },
-  { href: "/onboarding", label: "Dreams", icon: "D" },
+  { href: "/dashboard", label: "ホーム", icon: "🏠" },
+  { href: "/today", label: "今日", icon: "📝" },
+  { href: "/review", label: "振り返り", icon: "🌙" },
+  { href: "/history", label: "履歴", icon: "📊" },
+  { href: "/onboarding", label: "夢", icon: "⭐" },
 ];
 
 export function Nav() {
