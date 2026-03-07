@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify({ title, body, url })
         )
-        .catch(async (err) => {
+        .catch(async (err: { statusCode?: number }) => {
           if (err.statusCode === 410) {
             await prisma.pushSubscription.delete({ where: { id: sub.id } });
           }
