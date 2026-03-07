@@ -1,6 +1,6 @@
 {
-  "name": "ライフナビゲーター",
-  "short_name": "ライフナビ",
+  "name": "夢ナビ",
+  "short_name": "夢ナビ",
   "description": "AIと習慣化で人生の4大悩みを整えるアプリ",
   "start_url": "/dashboard",
   "display": "standalone",

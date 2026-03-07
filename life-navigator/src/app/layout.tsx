@@ -11,14 +11,14 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "ライフナビゲーター",
+  title: "夢ナビ",
   description: "AIと習慣化で人生の4大悩みを整えるアプリ",
   manifest: "/manifest.json",
   themeColor: "#3b82f6",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "ライフナビゲーター",
+    title: "夢ナビ",
   },
 };
 
@@ -37,7 +37,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} antialiased bg-gray-50 text-gray-900`}>
         <div className="min-h-screen flex flex-col">
           <header className="bg-white border-b border-gray-200 px-4 py-3">
-            <h1 className="text-xl font-bold text-center">ライフナビゲーター</h1>
+            <h1 className="text-xl font-bold text-center">夢ナビ</h1>
           </header>
           <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-20">
             {children}
