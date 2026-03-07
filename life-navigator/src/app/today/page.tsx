@@ -89,8 +89,8 @@ export default function TodayPage() {
     <div className="space-y-6">
       {/* MIT Section */}
       <section>
-        <h2 className="text-lg font-bold mb-1">今日やること 3つ</h2>
-        <p className="text-xs text-gray-500 mb-3">Most Important Tasks</p>
+        <h2 className="text-lg font-bold mb-1">今日の最優先事項 3つ</h2>
+        <p className="text-xs text-gray-500 mb-3">夢に近づくために今日やること</p>
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-2 bg-white rounded-lg p-3 shadow-sm">

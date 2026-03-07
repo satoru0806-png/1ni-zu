@@ -44,7 +44,7 @@ export function PushPermission() {
   return (
     <div className="fixed bottom-20 left-4 right-4 bg-blue-600 text-white rounded-xl p-4 shadow-lg z-50 max-w-lg mx-auto">
       <p className="text-sm font-bold mb-1">朝・夜にリマインドしますか？</p>
-      <p className="text-xs mb-3 opacity-90">通知をONにすると、毎朝MIT設定・毎晩振り返りをお知らせします</p>
+      <p className="text-xs mb-3 opacity-90">通知をONにすると、毎朝最優先事項の設定・毎晩振り返りをお知らせします</p>
       <div className="flex gap-2">
         <button
           onClick={subscribe}

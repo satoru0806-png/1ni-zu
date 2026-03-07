@@ -71,7 +71,7 @@ function HistoryContent() {
         {/* MIT */}
         {(selected.mit1 || selected.mit2 || selected.mit3) && (
           <section className="bg-white rounded-xl p-4 shadow-sm">
-            <h3 className="text-sm font-bold text-blue-600 mb-2">MIT</h3>
+            <h3 className="text-sm font-bold text-blue-600 mb-2">最優先事項</h3>
             <ul className="text-sm space-y-1">
               {[selected.mit1, selected.mit2, selected.mit3].filter(Boolean).map((t, i) => (
                 <li key={i}>- {t}</li>
@@ -157,7 +157,7 @@ function HistoryContent() {
               <p className="text-xs text-gray-400 mt-1">記録なし</p>
             ) : (
               <div className="mt-1 text-xs text-gray-500 space-y-0.5">
-                {day.mit1 && <p>MIT: {day.mit1}</p>}
+                {day.mit1 && <p>最優先: {day.mit1}</p>}
                 {day.doneNote && <p className="truncate">振り返り: {day.doneNote}</p>}
               </div>
             )}

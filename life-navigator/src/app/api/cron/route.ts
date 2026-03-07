@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   if (h >= 6 && h < 10) {
     title = "おはよう！";
-    body = "今日のMITを設定しよう";
+    body = "今日の最優先事項を設定しよう";
     url = "/today";
   } else if (h >= 20 && h < 23) {
     title = "おつかれさま！";

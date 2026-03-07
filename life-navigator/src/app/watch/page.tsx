@@ -29,8 +29,8 @@ export default function WatchPage() {
   return (
     <div className="watch-container">
       <div className="watch-tabs">
-        <button onClick={() => setView("mit")} className={`watch-tab ${view === "mit" ? "active" : ""}`}>MIT</button>
-        <button onClick={() => setView("score")} className={`watch-tab ${view === "score" ? "active" : ""}`}>Score</button>
+        <button onClick={() => setView("mit")} className={`watch-tab ${view === "mit" ? "active" : ""}`}>最優先</button>
+        <button onClick={() => setView("score")} className={`watch-tab ${view === "score" ? "active" : ""}`}>スコア</button>
       </div>
 
       {view === "mit" && (
@@ -43,7 +43,7 @@ export default function WatchPage() {
                 <span className="watch-task-text">{t}</span>
               </div>
             )) : (
-              <p className="watch-empty">MIT未登録</p>
+              <p className="watch-empty">未登録</p>
             )}
           </div>
         </div>

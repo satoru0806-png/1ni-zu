@@ -81,7 +81,7 @@ export default function DashboardPage() {
               onClick={() => router.push("/today")}
               className="w-full bg-white text-blue-600 font-bold py-3 rounded-xl text-sm shadow"
             >
-              今日のMITを設定する
+              今日の最優先事項を設定する
             </button>
           </>
         ) : isNight ? (
@@ -170,7 +170,7 @@ export default function DashboardPage() {
                 </div>
                 {day.mit1 && (
                   <p className="text-xs text-gray-500 mt-1 truncate">
-                    MIT: {day.mit1}
+                    最優先: {day.mit1}
                   </p>
                 )}
               </div>
