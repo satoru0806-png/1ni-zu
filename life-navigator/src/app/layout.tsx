@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { RegisterSW } from "@/components/RegisterSW";
+import { PushPermission } from "@/components/PushPermission";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,6 +44,7 @@ export default function RootLayout({
           </main>
           <Nav />
           <RegisterSW />
+          <PushPermission />
         </div>
       </body>
     </html>
