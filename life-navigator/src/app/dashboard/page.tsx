@@ -23,6 +23,13 @@ const meters = [
   { key: "healthScore" as const, label: "健康", color: "#22c55e" },
 ];
 
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "おはよう！";
+  if (h < 18) return "こんにちは！";
+  return "おつかれさま！";
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("ja-JP", { month: "short", day: "numeric", weekday: "short" });
@@ -45,25 +52,53 @@ export default function DashboardPage() {
   const avg = Math.round(
     (today.relationshipScore + today.moneyScore + today.workScore + today.healthScore) / 4
   );
+  const hasMIT = today.mit1 || today.mit2 || today.mit3;
 
   return (
     <div className="space-y-6">
-      {/* Dreams */}
-      {dreams.length > 0 && (
-        <section className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4">
-          <h3 className="text-xs font-semibold text-gray-500 mb-2">MY DREAMS</h3>
-          <div className="space-y-1">
-            {dreams.map((d) => (
-              <p key={d.id} className="text-sm font-medium">{d.text}</p>
-            ))}
+      {/* Greeting */}
+      <section className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+        <h2 className="text-2xl font-bold mb-2">{getGreeting()}</h2>
+
+        {dreams.length > 0 ? (
+          <>
+            <p className="text-sm opacity-90 mb-3">私の夢はこれです：</p>
+            <div className="space-y-1 mb-4">
+              {dreams.map((d) => (
+                <p key={d.id} className="text-sm font-medium">✨ {d.text}</p>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm opacity-90 mb-4">まずは夢を登録しよう</p>
+        )}
+
+        {!hasMIT ? (
+          <>
+            <p className="text-sm opacity-90 mb-3">じゃあ今日は何をしようか？</p>
+            <button
+              onClick={() => router.push("/today")}
+              className="w-full bg-white text-blue-600 font-bold py-3 rounded-xl text-sm shadow"
+            >
+              今日のMITを設定する
+            </button>
+          </>
+        ) : (
+          <div>
+            <p className="text-sm opacity-90 mb-2">今日のMIT：</p>
+            <div className="space-y-1 text-sm">
+              {[today.mit1, today.mit2, today.mit3].filter(Boolean).map((t, i) => (
+                <p key={i}>✅ {t}</p>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Score Meters */}
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold">Life Score</h2>
+          <h2 className="text-lg font-bold">ライフスコア</h2>
           <span className="text-2xl font-bold text-purple-600">{avg}</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -85,35 +120,16 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Today's Status */}
-      <section className="bg-white rounded-xl p-4 shadow-sm">
-        <h3 className="text-sm font-bold mb-2">Today</h3>
-        {today.mit1 ? (
-          <div className="space-y-1 text-sm text-gray-700">
-            {[today.mit1, today.mit2, today.mit3].filter(Boolean).map((t, i) => (
-              <p key={i}>- {t}</p>
-            ))}
-          </div>
-        ) : (
-          <button
-            onClick={() => router.push("/today")}
-            className="text-sm text-blue-600 font-medium"
-          >
-            + 今日のMITを設定する
-          </button>
-        )}
-      </section>
-
       {/* 7-Day Log */}
       <section>
-        <h3 className="text-sm font-bold mb-2">Past 7 Days</h3>
+        <h3 className="text-sm font-bold mb-2">過去7日間</h3>
         <div className="space-y-2">
           {history.map((day) => {
             if ("empty" in day && day.empty) {
               return (
                 <div key={day.date} className="bg-white rounded-lg p-3 shadow-sm">
                   <p className="text-xs font-medium text-gray-400">{formatDate(day.date)}</p>
-                  <p className="text-xs text-gray-300">No data</p>
+                  <p className="text-xs text-gray-300">記録なし</p>
                 </div>
               );
             }
