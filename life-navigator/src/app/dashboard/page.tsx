@@ -85,12 +85,18 @@ export default function DashboardPage() {
           </>
         ) : (
           <div>
-            <p className="text-sm opacity-90 mb-2">今日のMIT：</p>
-            <div className="space-y-1 text-sm">
+            <p className="text-lg font-bold mb-3">今日の仕事は順調か？</p>
+            <div className="space-y-1 text-sm mb-4">
               {[today.mit1, today.mit2, today.mit3].filter(Boolean).map((t, i) => (
                 <p key={i}>✅ {t}</p>
               ))}
             </div>
+            <button
+              onClick={() => router.push("/review")}
+              className="w-full bg-white text-purple-600 font-bold py-3 rounded-xl text-sm shadow"
+            >
+              振り返りをする
+            </button>
           </div>
         )}
       </section>
