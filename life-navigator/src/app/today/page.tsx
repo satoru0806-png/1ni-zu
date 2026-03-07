@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { VoiceInput } from "@/components/VoiceInput";
 
 const scoreFields = [
   { key: "relationshipScore", label: "人間関係", color: "accent-pink-500" },
@@ -103,6 +104,7 @@ export default function TodayPage() {
                 placeholder={`タスク ${i + 1}`}
                 className="flex-1 text-sm outline-none bg-transparent"
               />
+              <VoiceInput onResult={(t) => updateMit(i, t)} />
             </div>
           ))}
         </div>
@@ -136,13 +138,16 @@ export default function TodayPage() {
       <section>
         <h2 className="text-lg font-bold mb-1">メモ</h2>
         <p className="text-xs text-gray-500 mb-3">入力するとタスクを自動抽出します</p>
-        <textarea
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          placeholder={"メモを入力...\n例: 企画書を作成する / 山田さんに連絡する"}
-          rows={4}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-        />
+        <div className="flex gap-2 items-start">
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder={"メモを入力...\n例: 企画書を作成する / 山田さんに連絡する"}
+            rows={4}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+          />
+          <VoiceInput onResult={(t) => setMemo((prev) => prev ? prev + " " + t : t)} />
+        </div>
         {memoResult && (
           <div className="mt-2 bg-gray-50 rounded-lg p-3 text-sm">
             <p className="text-gray-600">{memoResult.summary}</p>

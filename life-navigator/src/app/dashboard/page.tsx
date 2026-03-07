@@ -53,6 +53,7 @@ export default function DashboardPage() {
     (today.relationshipScore + today.moneyScore + today.workScore + today.healthScore) / 4
   );
   const hasMIT = today.mit1 || today.mit2 || today.mit3;
+  const isNight = new Date().getHours() >= 18;
 
   return (
     <div className="space-y-6">
@@ -83,9 +84,9 @@ export default function DashboardPage() {
               今日のMITを設定する
             </button>
           </>
-        ) : (
+        ) : isNight ? (
           <div>
-            <p className="text-lg font-bold mb-3">今日の仕事は順調か？</p>
+            <p className="text-lg font-bold mb-3">今日どうだった？</p>
             <div className="space-y-1 text-sm mb-4">
               {[today.mit1, today.mit2, today.mit3].filter(Boolean).map((t, i) => (
                 <p key={i}>✅ {t}</p>
@@ -96,6 +97,21 @@ export default function DashboardPage() {
               className="w-full bg-white text-purple-600 font-bold py-3 rounded-xl text-sm shadow"
             >
               振り返りをする
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p className="text-lg font-bold mb-3">今日の仕事は順調か？</p>
+            <div className="space-y-1 text-sm mb-4">
+              {[today.mit1, today.mit2, today.mit3].filter(Boolean).map((t, i) => (
+                <p key={i}>✅ {t}</p>
+              ))}
+            </div>
+            <button
+              onClick={() => router.push("/today")}
+              className="w-full bg-white text-blue-600 font-bold py-3 rounded-xl text-sm shadow"
+            >
+              進捗を更新する
             </button>
           </div>
         )}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { VoiceInput } from "@/components/VoiceInput";
 
 export default function ReviewPage() {
   const [doneNote, setDoneNote] = useState("");
@@ -27,49 +28,58 @@ export default function ReviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold mb-1">夜の振り返り</h2>
-        <p className="text-xs text-gray-500 mb-4">今日を振り返り、明日に備えよう</p>
+      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+        <h2 className="text-xl font-bold mb-1">今日どうだった？</h2>
+        <p className="text-sm opacity-90">話してくれたら聞くよ。マイクボタンで声で入力できるよ。</p>
       </div>
 
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-semibold mb-1 text-green-700">
-            できたこと
+            今日できたことは？
           </label>
-          <textarea
-            value={doneNote}
-            onChange={(e) => setDoneNote(e.target.value)}
-            placeholder="今日達成できたことを書こう..."
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-          />
+          <div className="flex gap-2 items-start">
+            <textarea
+              value={doneNote}
+              onChange={(e) => setDoneNote(e.target.value)}
+              placeholder="何ができた？"
+              rows={3}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+            />
+            <VoiceInput onResult={(t) => setDoneNote((prev) => prev ? prev + " " + t : t)} />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-semibold mb-1 text-amber-600">
-            感謝
+            今日感謝していることは？
           </label>
-          <textarea
-            value={gratitudeNote}
-            onChange={(e) => setGratitudeNote(e.target.value)}
-            placeholder="今日感謝していることは..."
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-          />
+          <div className="flex gap-2 items-start">
+            <textarea
+              value={gratitudeNote}
+              onChange={(e) => setGratitudeNote(e.target.value)}
+              placeholder="ありがたかったことは？"
+              rows={3}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+            />
+            <VoiceInput onResult={(t) => setGratitudeNote((prev) => prev ? prev + " " + t : t)} />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-semibold mb-1 text-blue-700">
-            明日やること
+            明日何しようか？
           </label>
-          <textarea
-            value={tomorrowPlan}
-            onChange={(e) => setTomorrowPlan(e.target.value)}
-            placeholder="明日取り組むことを書こう..."
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
-          />
+          <div className="flex gap-2 items-start">
+            <textarea
+              value={tomorrowPlan}
+              onChange={(e) => setTomorrowPlan(e.target.value)}
+              placeholder="明日やりたいことは？"
+              rows={3}
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+            />
+            <VoiceInput onResult={(t) => setTomorrowPlan((prev) => prev ? prev + " " + t : t)} />
+          </div>
         </div>
       </div>
 
