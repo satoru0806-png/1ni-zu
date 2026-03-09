@@ -104,7 +104,13 @@ export default function TodayPage() {
                 placeholder={`タスク ${i + 1}`}
                 className="flex-1 text-sm outline-none bg-transparent"
               />
-              <VoiceInput onResult={(t) => updateMit(i, t)} />
+              <VoiceInput context="morning_mit" onResult={(t, tasks) => {
+                if (tasks && tasks.length > 0) {
+                  tasks.forEach((task, j) => { if (j + i < 3) updateMit(j + i, task); });
+                } else {
+                  updateMit(i, t);
+                }
+              }} />
             </div>
           ))}
         </div>
@@ -146,7 +152,7 @@ export default function TodayPage() {
             rows={4}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
           />
-          <VoiceInput onResult={(t) => setMemo((prev) => prev ? prev + " " + t : t)} />
+          <VoiceInput context="daytime_memo" onResult={(t) => setMemo((prev) => prev ? prev + " " + t : t)} />
         </div>
         {memoResult && (
           <div className="mt-2 bg-gray-50 rounded-lg p-3 text-sm">

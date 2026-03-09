@@ -46,7 +46,7 @@ export default function ReviewPage() {
               rows={3}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
             />
-            <VoiceInput onResult={(t) => setDoneNote((prev) => prev ? prev + " " + t : t)} />
+            <VoiceInput context="evening_done" onResult={(t) => setDoneNote((prev) => prev ? prev + " " + t : t)} />
           </div>
         </div>
 
@@ -62,7 +62,7 @@ export default function ReviewPage() {
               rows={3}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
             />
-            <VoiceInput onResult={(t) => setGratitudeNote((prev) => prev ? prev + " " + t : t)} />
+            <VoiceInput context="evening_thanks" onResult={(t) => setGratitudeNote((prev) => prev ? prev + " " + t : t)} />
           </div>
         </div>
 
@@ -78,7 +78,7 @@ export default function ReviewPage() {
               rows={3}
               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
             />
-            <VoiceInput onResult={(t) => setTomorrowPlan((prev) => prev ? prev + " " + t : t)} />
+            <VoiceInput context="evening_plan" onResult={(t) => setTomorrowPlan((prev) => prev ? prev + " " + t : t)} />
           </div>
         </div>
       </div>

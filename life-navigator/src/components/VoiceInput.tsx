@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import type { VoiceContext } from "@/lib/voice-ai";
 
 const CORRECTIONS: Record<string, string> = {
   "てゆうか": "というか",
@@ -22,12 +23,35 @@ function autoCorrect(text: string): string {
 }
 
 type Props = {
-  onResult: (text: string) => void;
+  onResult: (text: string, tasks?: string[]) => void;
+  context?: VoiceContext;
 };
 
-export function VoiceInput({ onResult }: Props) {
+export function VoiceInput({ onResult, context = "free_text" }: Props) {
   const [listening, setListening] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const recRef = useRef<SpeechRecognition | null>(null);
+
+  const processWithAI = async (rawText: string) => {
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawText, context }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onResult(data.cleaned || rawText, data.tasks);
+        return;
+      }
+      onResult(autoCorrect(rawText));
+    } catch {
+      onResult(autoCorrect(rawText));
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   const toggle = () => {
     if (listening) {
@@ -46,9 +70,8 @@ export function VoiceInput({ onResult }: Props) {
 
     rec.onresult = (e: SpeechRecognitionEvent) => {
       const raw = e.results[0][0].transcript;
-      const corrected = autoCorrect(raw);
-      onResult(corrected);
       setListening(false);
+      processWithAI(raw);
     };
     rec.onerror = () => setListening(false);
     rec.onend = () => setListening(false);
@@ -61,6 +84,14 @@ export function VoiceInput({ onResult }: Props) {
   if (typeof window === "undefined") return null;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
+
+  if (processing) {
+    return (
+      <span className="p-2 flex-shrink-0 text-xs text-purple-500 animate-pulse">
+        AI整形中...
+      </span>
+    );
+  }
 
   return (
     <button
