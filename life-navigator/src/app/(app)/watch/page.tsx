@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getTodayTheme, type DailyTheme } from "@/lib/daily-themes";
 
 type DayLog = {
   mit1: string | null;
@@ -13,7 +14,8 @@ type DayLog = {
 
 export default function WatchPage() {
   const [data, setData] = useState<DayLog | null>(null);
-  const [view, setView] = useState<"mit" | "score">("mit");
+  const [view, setView] = useState<"theme" | "mit" | "score">("theme");
+  const [theme] = useState<DailyTheme>(() => getTodayTheme());
 
   useEffect(() => {
     fetch("/api/daylog").then((r) => r.json()).then(setData);
@@ -29,9 +31,18 @@ export default function WatchPage() {
   return (
     <div className="watch-container">
       <div className="watch-tabs">
+        <button onClick={() => setView("theme")} className={`watch-tab ${view === "theme" ? "active" : ""}`}>今日</button>
         <button onClick={() => setView("mit")} className={`watch-tab ${view === "mit" ? "active" : ""}`}>最優先</button>
         <button onClick={() => setView("score")} className={`watch-tab ${view === "score" ? "active" : ""}`}>スコア</button>
       </div>
+
+      {view === "theme" && (
+        <div className="watch-content" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "4px" }}>{theme.emoji}</div>
+          <div style={{ fontSize: "0.85rem", fontWeight: "bold", marginBottom: "4px" }}>{theme.title}</div>
+          <div style={{ fontSize: "0.65rem", color: "#666", lineHeight: 1.3 }}>{theme.prompt}</div>
+        </div>
+      )}
 
       {view === "mit" && (
         <div className="watch-content">

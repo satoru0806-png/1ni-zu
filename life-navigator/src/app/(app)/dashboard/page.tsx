@@ -1,27 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getTodayTheme, type DailyTheme } from "@/lib/daily-themes";
 
 type DayLog = {
   date: string;
   mit1?: string | null;
   mit2?: string | null;
   mit3?: string | null;
-  doneNote?: string | null;
-  relationshipScore: number;
-  moneyScore: number;
-  workScore: number;
-  healthScore: number;
-  memoSummary?: string | null;
+  done_note?: string | null;
+  gratitude_note?: string | null;
+  memo_summary?: string | null;
   empty?: boolean;
 };
-
-const meters = [
-  { key: "relationshipScore" as const, label: "人間関係", color: "#ec4899" },
-  { key: "moneyScore" as const, label: "お金", color: "#eab308" },
-  { key: "workScore" as const, label: "仕事", color: "#3b82f6" },
-  { key: "healthScore" as const, label: "健康", color: "#22c55e" },
-];
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -39,6 +30,7 @@ export default function DashboardPage() {
   const [today, setToday] = useState<DayLog | null>(null);
   const [history, setHistory] = useState<DayLog[]>([]);
   const [dreams, setDreams] = useState<{ id: number; text: string }[]>([]);
+  const [theme] = useState<DailyTheme>(() => getTodayTheme());
   const router = useRouter();
 
   useEffect(() => {
@@ -49,15 +41,24 @@ export default function DashboardPage() {
 
   if (!today) return <div className="text-center py-8 text-gray-400">Loading...</div>;
 
-  const avg = Math.round(
-    (today.relationshipScore + today.moneyScore + today.workScore + today.healthScore) / 4
-  );
   const hasMIT = today.mit1 || today.mit2 || today.mit3;
   const isNight = new Date().getHours() >= 18;
 
   return (
     <div className="space-y-6">
-      {/* Greeting */}
+      {/* 今日のテーマ - 365日の名言 */}
+      <section className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="text-3xl">{theme.emoji}</span>
+          <div className="flex-1">
+            <p className="text-xs text-amber-600 font-medium">今日のテーマ</p>
+            <p className="text-base font-bold text-amber-900">{theme.title}</p>
+            <p className="text-xs text-amber-700 mt-1">{theme.prompt}</p>
+          </div>
+        </div>
+      </section>
+
+      {/* 挨拶 + 夢 + MIT */}
       <section className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
         <h2 className="text-2xl font-bold mb-2">{getGreeting()}</h2>
 
@@ -117,32 +118,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Score Meters */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold">ライフスコア</h2>
-          <span className="text-2xl font-bold text-purple-600">{avg}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {meters.map((m) => {
-            const val = today[m.key];
-            return (
-              <div key={m.key} className="bg-white rounded-xl p-3 shadow-sm text-center">
-                <p className="text-xs text-gray-500 mb-1">{m.label}</p>
-                <p className="text-2xl font-bold" style={{ color: m.color }}>{val}</p>
-                <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                  <div
-                    className="h-1.5 rounded-full transition-all"
-                    style={{ width: `${val}%`, backgroundColor: m.color }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 7-Day Log */}
+      {/* 過去7日間 */}
       <section>
         <h3 className="text-sm font-bold mb-2">過去7日間</h3>
         <div className="space-y-2">
@@ -155,22 +131,21 @@ export default function DashboardPage() {
                 </div>
               );
             }
-            const dayAvg = Math.round(
-              (day.relationshipScore + day.moneyScore + day.workScore + day.healthScore) / 4
-            );
             return (
               <div
                 key={day.date}
                 className="bg-white rounded-lg p-3 shadow-sm cursor-pointer hover:bg-gray-50"
                 onClick={() => router.push(`/history?date=${day.date}`)}
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">{formatDate(day.date)}</p>
-                  <span className="text-xs font-bold text-purple-600">{dayAvg}</span>
-                </div>
+                <p className="text-xs font-medium">{formatDate(day.date)}</p>
                 {day.mit1 && (
                   <p className="text-xs text-gray-500 mt-1 truncate">
                     最優先: {day.mit1}
+                  </p>
+                )}
+                {day.done_note && (
+                  <p className="text-xs text-green-600 mt-1 truncate">
+                    ✅ {day.done_note}
                   </p>
                 )}
               </div>

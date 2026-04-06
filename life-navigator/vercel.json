@@ -6,7 +6,15 @@
     },
     {
       "path": "/api/cron",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/weekly",
+      "schedule": "0 0 * * 0"
     }
   ]
 }

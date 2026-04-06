@@ -1,6 +1,7 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
+import { getTodayTheme } from "@/lib/daily-themes";
 
 export const dynamic = "force-dynamic";
 
@@ -18,24 +19,35 @@ export async function GET(req: NextRequest) {
 
   const hour = new Date().toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", hour: "numeric", hour12: false });
   const h = parseInt(hour, 10);
+  const theme = getTodayTheme();
 
   let title: string;
   let body: string;
   let url: string;
 
   if (h >= 6 && h < 10) {
-    title = "おはよう！";
-    body = "今日の最優先事項を設定しよう";
+    title = `${theme.emoji} おはよう！今日のテーマ: ${theme.title}`;
+    body = `${theme.prompt}\n夢を確認して、今日やることを決めよう！`;
+    url = "/today";
+  } else if (h >= 11 && h < 14) {
+    title = "🌤️ 進捗どうかな？";
+    body = `今日のテーマ「${theme.title}」を意識して、午後も頑張ろう！`;
     url = "/today";
   } else if (h >= 20 && h < 23) {
-    title = "おつかれさま！";
-    body = "今日の振り返りをしよう";
+    title = "🌙 おつかれさま！";
+    body = "今日の振り返りと明日の予定を立てよう";
     url = "/review";
   } else {
     return NextResponse.json({ skipped: true, hour: h });
   }
 
-  const subs = await prisma.pushSubscription.findMany();
+  const supabase = await createClient();
+  const { data: subs } = await supabase.from("push_subscriptions").select("*");
+
+  if (!subs || subs.length === 0) {
+    return NextResponse.json({ sent: 0, total: 0 });
+  }
+
   const results = await Promise.allSettled(
     subs.map((sub) =>
       webpush
@@ -45,7 +57,7 @@ export async function GET(req: NextRequest) {
         )
         .catch(async (err: { statusCode?: number }) => {
           if (err.statusCode === 410) {
-            await prisma.pushSubscription.delete({ where: { id: sub.id } });
+            await supabase.from("push_subscriptions").delete().eq("id", sub.id);
           }
           throw err;
         })
