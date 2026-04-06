@@ -150,6 +150,52 @@ function HistoryContent() {
         </button>
       </div>
 
+      {/* サマリー */}
+      {history.length > 0 && (() => {
+        const active = history.filter((d) => !("empty" in d && d.empty));
+        const totalDays = history.length;
+        const recordedDays = active.length;
+        const mitDays = active.filter((d) => d.mit1 || d.mit2 || d.mit3).length;
+        const gratDays = active.filter((d) => d.gratitude_note).length;
+        const reflectDays = active.filter((d) => {
+          const dn = d.done_note || "";
+          return dn && !dn.startsWith("[");
+        }).length;
+        return (
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-4 shadow-sm">
+            <h3 className="text-sm font-bold text-blue-700 mb-2">
+              {viewMode === "week" ? "今週のサマリー" : `${getMonthLabel(month)}のサマリー`}
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-xl font-bold text-blue-600">{recordedDays}/{totalDays}</p>
+                <p className="text-xs text-gray-500">記録日数</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-xl font-bold text-green-600">{mitDays}</p>
+                <p className="text-xs text-gray-500">MIT設定日</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-xl font-bold text-purple-600">{reflectDays}</p>
+                <p className="text-xs text-gray-500">振り返り日</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-xl font-bold text-amber-600">{gratDays}</p>
+                <p className="text-xs text-gray-500">感謝の記録</p>
+              </div>
+            </div>
+            {recordedDays > 0 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(recordedDays / totalDays) * 100}%` }} />
+                </div>
+                <p className="text-xs text-gray-500 mt-1 text-center">継続率 {Math.round((recordedDays / totalDays) * 100)}%</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 月ナビゲーション */}
       {viewMode === "month" && (
         <div className="flex items-center justify-between">
