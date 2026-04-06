@@ -1,5 +1,5 @@
 export function todayString(): string {
-  return new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD format
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 }
 
 export function formatDate(dateStr: string): string {
@@ -16,7 +16,7 @@ export function getLast7Days(): string[] {
   for (let i = 0; i < 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    days.push(d.toLocaleDateString("sv-SE"));
+    days.push(d.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }));
   }
   return days;
 }
