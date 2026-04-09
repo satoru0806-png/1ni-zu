@@ -10,6 +10,7 @@ const tabs = [
   { href: "/history", label: "履歴", icon: "📊" },
   { href: "/memos", label: "メモ", icon: "📋" },
   { href: "/onboarding", label: "夢", icon: "⭐" },
+  { href: "/settings", label: "設定", icon: "⚙️" },
 ];
 
 export function Nav() {
