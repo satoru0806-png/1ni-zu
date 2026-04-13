@@ -12,6 +12,12 @@ const config: ForgeConfig = {
     name: "SpeakNote",
     appBundleId: "com.nizu.speaknote",
     darwinDarkModeSupport: true,
+    extendInfo: {
+      NSMicrophoneUsageDescription:
+        "SpeakNoteは音声をテキストに変換するためにマイクを使用します。",
+      NSSpeechRecognitionUsageDescription:
+        "SpeakNoteは日本語音声認識のために音声データを使用します。",
+    },
   },
   rebuildConfig: {},
   makers: [

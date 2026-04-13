@@ -10,12 +10,21 @@ contextBridge.exposeInMainWorld("speaknoteAPI", {
     ipcRenderer.removeAllListeners("window-shown");
     ipcRenderer.on("window-shown", () => callback());
   },
+  onCancelRecording: (callback: () => void) => {
+    ipcRenderer.removeAllListeners("cancel-recording");
+    ipcRenderer.on("cancel-recording", () => callback());
+  },
 
   // Renderer -> Main calls
   processVoice: (rawText: string, context: string) =>
     ipcRenderer.invoke("process-voice", rawText, context),
+  transcribeAudio: (audioBuffer: ArrayBuffer, mimeType: string) =>
+    ipcRenderer.invoke("transcribe-audio", audioBuffer, mimeType),
   copyToClipboard: (text: string) =>
     ipcRenderer.invoke("copy-to-clipboard", text),
+  pasteToPreviousApp: () => ipcRenderer.invoke("paste-to-previous-app"),
+  setRecordingState: (state: "idle" | "recording" | "processing") =>
+    ipcRenderer.invoke("set-recording-state", state),
   getSettings: () => ipcRenderer.invoke("get-settings"),
   saveSettings: (settings: Record<string, unknown>) =>
     ipcRenderer.invoke("save-settings", settings),

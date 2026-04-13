@@ -11,8 +11,11 @@ export function Settings({ onClose, onSettingsChange }: Props) {
   const api = useElectronAPI();
   const [settings, setSettings] = useState<AppSettings>({
     apiKey: "",
+    openaiApiKey: "",
     shortcut: "CommandOrControl+Shift+S",
     autoCopy: true,
+    autoPaste: true,
+    transcribePrompt: "",
   });
   const [saved, setSaved] = useState(false);
 
@@ -45,7 +48,26 @@ export function Settings({ onClose, onSettingsChange }: Props) {
 
       {/* Content */}
       <div className="flex-1 px-4 py-4 space-y-5 overflow-y-auto">
-        {/* API Key */}
+        {/* OpenAI API Key (required for transcription) */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            OpenAI API Key <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="password"
+            value={settings.openaiApiKey}
+            onChange={(e) =>
+              setSettings({ ...settings, openaiApiKey: e.target.value })
+            }
+            placeholder="sk-..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            Whisper API による音声→テキスト変換に使用(必須)
+          </p>
+        </div>
+
+        {/* Anthropic API Key (optional, for AI cleanup) */}
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1.5">
             Anthropic API Key
@@ -60,7 +82,26 @@ export function Settings({ onClose, onSettingsChange }: Props) {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="mt-1 text-xs text-gray-400">
-            Claude Haiku による音声テキスト整形に使用
+            Claude Haiku による整形に使用(任意)
+          </p>
+        </div>
+
+        {/* Transcribe prompt (vocab bias) */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            語彙ヒント
+          </label>
+          <textarea
+            value={settings.transcribePrompt}
+            onChange={(e) =>
+              setSettings({ ...settings, transcribePrompt: e.target.value })
+            }
+            placeholder="固有名詞や専門用語をカンマ区切りで(例: NI-ZU, Claude, Electron, 夢ナビ)"
+            rows={2}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            転写時のヒントとして Whisper に渡されます(誤認識が減ります)
           </p>
         </div>
 
@@ -101,6 +142,30 @@ export function Settings({ onClose, onSettingsChange }: Props) {
             <span
               className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
                 settings.autoCopy ? "translate-x-5" : ""
+              }`}
+            />
+          </button>
+        </div>
+
+        {/* Auto Paste */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-700">自動ペースト</p>
+            <p className="text-xs text-gray-400">
+              直前のアプリへ Cmd+V を自動送信(要アクセシビリティ権限)
+            </p>
+          </div>
+          <button
+            onClick={() =>
+              setSettings({ ...settings, autoPaste: !settings.autoPaste })
+            }
+            className={`relative w-11 h-6 rounded-full transition-colors ${
+              settings.autoPaste ? "bg-blue-500" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                settings.autoPaste ? "translate-x-5" : ""
               }`}
             />
           </button>

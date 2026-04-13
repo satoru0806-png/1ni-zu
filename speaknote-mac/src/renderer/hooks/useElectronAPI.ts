@@ -1,10 +1,14 @@
-import type { AppSettings, AppVoiceContext, HistoryEntry, VoiceResult } from "../../shared/types";
+import type { AppSettings, AppVoiceContext, HistoryEntry, TranscribeResult, VoiceResult } from "../../shared/types";
 
 interface SpeakNoteAPI {
   onToggleRecording: (callback: () => void) => void;
   onWindowShown: (callback: () => void) => void;
+  onCancelRecording: (callback: () => void) => void;
   processVoice: (rawText: string, context: string) => Promise<VoiceResult>;
+  transcribeAudio: (audioBuffer: ArrayBuffer, mimeType: string) => Promise<TranscribeResult>;
   copyToClipboard: (text: string) => Promise<void>;
+  pasteToPreviousApp: () => Promise<void>;
+  setRecordingState: (state: "idle" | "recording" | "processing") => Promise<void>;
   getSettings: () => Promise<AppSettings>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<void>;
   getHistory: () => Promise<HistoryEntry[]>;

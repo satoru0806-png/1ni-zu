@@ -31,14 +31,18 @@ export function App() {
   const [view, setView] = useState<View>("main");
   const [result, setResult] = useState<VoiceResult | null>(null);
   const [autoCopy, setAutoCopy] = useState(true);
+  const [autoPaste, setAutoPaste] = useState(true);
   const [mode, setMode] = useState<AppVoiceContext>("free_text");
   const [hasApiKey, setHasApiKey] = useState(true);
+  const [hasOpenaiKey, setHasOpenaiKey] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     api.getSettings().then((s) => {
       setAutoCopy(s.autoCopy);
+      setAutoPaste(s.autoPaste ?? true);
       setHasApiKey(!!s.apiKey);
+      setHasOpenaiKey(!!s.openaiApiKey);
     });
   }, [api]);
 
@@ -56,13 +60,16 @@ export function App() {
   const { listening, processing, interim, toggle } = useSpeechRecognition({
     context: mode,
     autoCopy,
+    autoPaste,
     onResult: handleResult,
     onError: handleError,
   });
 
   const handleSettingsChange = (settings: AppSettings) => {
     setAutoCopy(settings.autoCopy);
+    setAutoPaste(settings.autoPaste);
     setHasApiKey(!!settings.apiKey);
+    setHasOpenaiKey(!!settings.openaiApiKey);
   };
 
   if (view === "settings") {
@@ -124,8 +131,23 @@ export function App() {
         <ModeSelector value={mode} onChange={setMode} />
       </div>
 
-      {/* API key info */}
-      {!hasApiKey && !listening && !processing && !result && (
+      {/* OpenAI key warning (required) */}
+      {!hasOpenaiKey && !listening && !processing && !result && (
+        <div className="mx-4 mb-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <p className="text-xs text-amber-800">
+            OpenAI APIキー未設定。
+            <button
+              onClick={() => setView("settings")}
+              className="ml-1 underline font-medium hover:text-amber-900"
+            >
+              設定画面で入力
+            </button>
+          </p>
+        </div>
+      )}
+
+      {/* Anthropic key info (optional) */}
+      {hasOpenaiKey && !hasApiKey && !listening && !processing && !result && (
         <div className="mx-4 mb-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
           <p className="text-xs text-blue-700">
             ダイレクトモード：音声がそのままコピーされます。

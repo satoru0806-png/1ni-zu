@@ -12,6 +12,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { processVoice } from "./anthropic";
+import { transcribeAudio } from "./whisper";
 import {
   getSettings,
   saveSettings,
@@ -23,6 +24,57 @@ import type { AppVoiceContext, HistoryEntry } from "../shared/types";
 
 import { uIOhook, UiohookKey } from "uiohook-napi";
 import fs from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+let previousApp: string | null = null;
+
+function captureFrontmostApp(): void {
+  try {
+    const stdout = execFileSync(
+      "osascript",
+      [
+        "-e",
+        'tell application "System Events" to get name of first application process whose frontmost is true',
+      ],
+      { encoding: "utf8", timeout: 1000 }
+    );
+    const name = stdout.trim();
+    if (name && name !== "SpeakNote" && name !== "Electron") {
+      previousApp = name;
+      debugLog(`captured frontmost: ${name}`);
+    } else {
+      debugLog(`captureFrontmostApp skipped: "${name}"`);
+    }
+  } catch (err) {
+    debugLog(`captureFrontmostApp failed: ${err}`);
+  }
+}
+
+async function pasteToPreviousApp(): Promise<void> {
+  if (!previousApp) {
+    debugLog("pasteToPreviousApp: no previous app");
+    return;
+  }
+  const target = previousApp;
+  if (mainWindow?.isVisible()) mainWindow.hide();
+  await new Promise((r) => setTimeout(r, 120));
+  try {
+    await execFileAsync("osascript", [
+      "-e",
+      `tell application "${target}" to activate`,
+      "-e",
+      "delay 0.15",
+      "-e",
+      'tell application "System Events" to keystroke "v" using command down',
+    ]);
+    debugLog(`pasted to ${target}`);
+  } catch (err) {
+    debugLog(`pasteToPreviousApp failed: ${err}`);
+  }
+}
 
 const LOG_FILE = "/tmp/speaknote-debug.log";
 function debugLog(msg: string): void {
@@ -42,7 +94,7 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 400,
     height: 520,
-    show: true,
+    show: false,
     frame: true,
     resizable: true,
     skipTaskbar: false,
@@ -100,16 +152,45 @@ function toggleWindow(): void {
   if (mainWindow.isVisible()) {
     mainWindow.hide();
   } else {
+    captureFrontmostApp();
     const { x, y } = getWindowPosition();
     mainWindow.setPosition(x, y, false);
-    mainWindow.show();
-    mainWindow.focus();
+    mainWindow.showInactive();
     mainWindow.webContents.send("window-shown");
+  }
+}
+
+let trayAnimTimer: NodeJS.Timeout | null = null;
+
+function setTrayState(state: "idle" | "recording" | "processing"): void {
+  if (!tray) return;
+  if (trayAnimTimer) {
+    clearInterval(trayAnimTimer);
+    trayAnimTimer = null;
+  }
+  if (state === "idle") {
+    tray.setTitle("");
+  } else if (state === "recording") {
+    let on = true;
+    tray.setTitle("●");
+    trayAnimTimer = setInterval(() => {
+      on = !on;
+      tray?.setTitle(on ? "●" : "○");
+    }, 500);
+  } else if (state === "processing") {
+    const frames = ["⋯", "·⋯", "··⋯"];
+    let i = 0;
+    tray.setTitle(frames[0]);
+    trayAnimTimer = setInterval(() => {
+      i = (i + 1) % frames.length;
+      tray?.setTitle(frames[i]);
+    }, 300);
   }
 }
 
 function triggerRecording(): void {
   if (!mainWindow) return;
+  captureFrontmostApp();
   if (!mainWindow.isVisible()) {
     toggleWindow();
   }
@@ -150,9 +231,12 @@ function createTray(): void {
   });
 }
 
+let recordingState: "idle" | "recording" | "processing" = "idle";
+
 function setupKeyboardHook(): void {
   // Right Command key detection via uiohook-napi
   const RIGHT_META = UiohookKey.MetaRight;
+  const ESC = UiohookKey.Escape;
   let rightMetaDown = false;
   let rightMetaUsedAsCombo = false;
 
@@ -165,6 +249,10 @@ function setupKeyboardHook(): void {
       rightMetaUsedAsCombo = false;
     } else if (rightMetaDown) {
       rightMetaUsedAsCombo = true;
+    }
+    if (e.keycode === ESC && recordingState === "recording") {
+      debugLog("cancel-recording!");
+      mainWindow?.webContents.send("cancel-recording");
     }
   });
 
@@ -203,9 +291,34 @@ function setupIPC(): void {
     }
   );
 
+  ipcMain.handle(
+    "transcribe-audio",
+    async (_event, audioBuffer: ArrayBuffer, mimeType: string) => {
+      const settings = getSettings();
+      return transcribeAudio(
+        audioBuffer,
+        mimeType,
+        settings.openaiApiKey,
+        settings.transcribePrompt
+      );
+    }
+  );
+
   ipcMain.handle("copy-to-clipboard", (_event, text: string) => {
     clipboard.writeText(text);
   });
+
+  ipcMain.handle("paste-to-previous-app", async () => {
+    await pasteToPreviousApp();
+  });
+
+  ipcMain.handle(
+    "set-recording-state",
+    (_event, state: "idle" | "recording" | "processing") => {
+      recordingState = state;
+      setTrayState(state);
+    }
+  );
 
   ipcMain.handle("get-settings", () => {
     return getSettings();
@@ -242,14 +355,11 @@ app.on("ready", async () => {
 
   // Allow renderer to use microphone
   session.defaultSession.setPermissionRequestHandler(
-    (_webContents, permission, callback) => {
-      if (permission === "media") {
-        callback(true);
-      } else {
-        callback(true);
-      }
+    (_webContents, _permission, callback) => {
+      callback(true);
     }
   );
+  session.defaultSession.setPermissionCheckHandler(() => true);
 
   mainWindow = createWindow();
   createTray();

@@ -10,8 +10,11 @@ const store = new Store<StoreSchema>({
   defaults: {
     settings: {
       apiKey: "",
+      openaiApiKey: "",
       shortcut: "CommandOrControl+Shift+S",
       autoCopy: true,
+      autoPaste: true,
+      transcribePrompt: "",
     },
     history: [],
   },

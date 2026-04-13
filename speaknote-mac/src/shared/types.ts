@@ -17,8 +17,16 @@ export type HistoryEntry = {
 
 export type AppSettings = {
   apiKey: string;
+  openaiApiKey: string;
   shortcut: string;
   autoCopy: boolean;
+  autoPaste: boolean;
+  transcribePrompt: string;
+};
+
+export type TranscribeResult = {
+  text: string;
+  error?: string;
 };
 
 // Web Speech API types for Electron/Chromium

@@ -3,7 +3,6 @@ import { autoCorrect } from "../../shared/auto-correct";
 import type { AppVoiceContext, VoiceResult } from "../../shared/types";
 import { useElectronAPI } from "./useElectronAPI";
 
-// Sound effects using Web Audio API
 function playSound(type: "start" | "stop" | "done" | "error") {
   try {
     const ctx = new AudioContext();
@@ -35,7 +34,6 @@ function playSound(type: "start" | "stop" | "done" | "error") {
       osc.start();
       osc.stop(ctx.currentTime + 0.25);
     } else {
-      // Error - low buzz
       osc.frequency.setValueAtTime(200, ctx.currentTime);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
@@ -50,40 +48,93 @@ function playSound(type: "start" | "stop" | "done" | "error") {
 type UseSpeechRecognitionOptions = {
   context: AppVoiceContext;
   autoCopy: boolean;
+  autoPaste: boolean;
   onResult: (result: VoiceResult) => void;
   onError?: (message: string) => void;
 };
 
+function pickMimeType(): string {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  for (const t of candidates) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return "";
+}
+
 export function useSpeechRecognition({
   context,
   autoCopy,
+  autoPaste,
   onResult,
   onError,
 }: UseSpeechRecognitionOptions) {
   const [listening, setListening] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [interim, setInterim] = useState("");
-  const recRef = useRef<any>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const mimeTypeRef = useRef<string>("");
+  const chunksRef = useRef<Blob[]>([]);
+  const cancelRef = useRef(false);
   const api = useElectronAPI();
+
+  const ensureStream = useCallback(async (): Promise<MediaStream | null> => {
+    const existing = streamRef.current;
+    if (existing && existing.getAudioTracks().some((t) => t.readyState === "live")) {
+      return existing;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+        },
+      });
+      streamRef.current = stream;
+      if (!mimeTypeRef.current) mimeTypeRef.current = pickMimeType();
+      return stream;
+    } catch (err: any) {
+      const msg =
+        err?.name === "NotAllowedError"
+          ? "マイクの使用が許可されていません。システム設定 → プライバシーとセキュリティ → マイク で SpeakNote を許可してください"
+          : "マイクにアクセスできません";
+      playSound("error");
+      onError?.(msg);
+      return null;
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    ensureStream();
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, [ensureStream]);
 
   const processWithAI = useCallback(
     async (rawText: string) => {
       setProcessing(true);
       setInterim("");
       try {
-        // Check if API key is configured
         const settings = await api.getSettings();
         let voiceResult: VoiceResult;
 
         if (settings.apiKey) {
-          // AI整形モード
           const result = await api.processVoice(rawText, context);
           voiceResult = {
             cleaned: result.cleaned || rawText,
             tasks: result.tasks,
             error: result.error,
           };
-
           if (result.error) {
             playSound("error");
             onError?.(result.error);
@@ -91,7 +142,6 @@ export function useSpeechRecognition({
             playSound("done");
           }
         } else {
-          // ダイレクトモード（APIキーなし）— そのままコピー
           const corrected = autoCorrect(rawText);
           voiceResult = { cleaned: corrected };
           playSound("done");
@@ -99,9 +149,11 @@ export function useSpeechRecognition({
 
         if (autoCopy && voiceResult.cleaned) {
           await api.copyToClipboard(voiceResult.cleaned);
+          if (autoPaste && !voiceResult.error) {
+            await api.pasteToPreviousApp();
+          }
         }
 
-        // Save to history
         await api.addHistory({
           id: Date.now().toString(),
           raw: rawText,
@@ -119,81 +171,127 @@ export function useSpeechRecognition({
         onResult({ cleaned: corrected });
       } finally {
         setProcessing(false);
+        api.setRecordingState("idle");
       }
     },
-    [context, autoCopy, onResult, onError, api]
+    [context, autoCopy, autoPaste, onResult, onError, api]
   );
 
-  const start = useCallback(() => {
-    const SR =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      onError?.("音声認識が利用できません");
+  const finalize = useCallback(
+    async (blob: Blob, mimeType: string) => {
+      setListening(false);
+      setProcessing(true);
+      api.setRecordingState("processing");
+      try {
+        const buf = await blob.arrayBuffer();
+        const { text, error } = await api.transcribeAudio(buf, mimeType);
+        if (error) {
+          playSound("error");
+          onError?.(error);
+          setProcessing(false);
+          api.setRecordingState("idle");
+          return;
+        }
+        if (!text) {
+          playSound("error");
+          onError?.("音声が検出されませんでした");
+          setProcessing(false);
+          api.setRecordingState("idle");
+          return;
+        }
+        await processWithAI(text);
+      } catch (err) {
+        console.error("transcribe failed", err);
+        playSound("error");
+        onError?.("音声の転写に失敗しました");
+        setProcessing(false);
+        api.setRecordingState("idle");
+      }
+    },
+    [api, onError, processWithAI]
+  );
+
+  const start = useCallback(async () => {
+    const stream = await ensureStream();
+    if (!stream) return;
+
+    const mimeType = mimeTypeRef.current || pickMimeType();
+    if (!mimeType) {
+      playSound("error");
+      onError?.("対応する音声形式がありません");
       return;
     }
+    mimeTypeRef.current = mimeType;
 
-    const rec = new SR();
-    rec.lang = "ja-JP";
-    rec.continuous = false;
-    rec.interimResults = true;
+    const recorder = new MediaRecorder(stream, {
+      mimeType,
+      audioBitsPerSecond: 128000,
+    });
+    chunksRef.current = [];
 
-    rec.onresult = (e: any) => {
-      const result = e.results[e.results.length - 1];
-      if (result.isFinal) {
-        const raw = result[0].transcript;
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      recorderRef.current = null;
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      chunksRef.current = [];
+      if (cancelRef.current) {
+        cancelRef.current = false;
         setListening(false);
-        playSound("stop");
-        processWithAI(raw);
-      } else {
-        setInterim(result[0].transcript);
+        api.setRecordingState("idle");
+        return;
       }
+      if (blob.size === 0) {
+        setListening(false);
+        api.setRecordingState("idle");
+        playSound("error");
+        onError?.("録音データがありません");
+        return;
+      }
+      playSound("stop");
+      finalize(blob, mimeType);
     };
 
-    rec.onerror = (e: any) => {
-      setListening(false);
-      setInterim("");
-      const errorMap: Record<string, string> = {
-        "no-speech": "音声が検出されませんでした",
-        "audio-capture": "マイクにアクセスできません",
-        "not-allowed": "マイクの使用が許可されていません",
-        network: "ネットワークエラー",
-      };
-      const msg = errorMap[e.error] || "音声認識エラー";
-      playSound("error");
-      onError?.(msg);
-    };
-
-    rec.onend = () => {
-      setListening(false);
-    };
-
-    recRef.current = rec;
-    rec.start();
+    recorderRef.current = recorder;
+    cancelRef.current = false;
+    recorder.start();
     setListening(true);
+    api.setRecordingState("recording");
     playSound("start");
-  }, [processWithAI, onError]);
+  }, [ensureStream, finalize, onError, api]);
 
   const stop = useCallback(() => {
-    recRef.current?.stop();
-    setListening(false);
-    playSound("stop");
+    const rec = recorderRef.current;
+    if (rec && rec.state !== "inactive") {
+      rec.stop();
+    } else {
+      setListening(false);
+    }
+  }, []);
+
+  const cancel = useCallback(() => {
+    const rec = recorderRef.current;
+    if (rec && rec.state !== "inactive") {
+      cancelRef.current = true;
+      rec.stop();
+    }
   }, []);
 
   const toggle = useCallback(() => {
-    if (listening) {
-      stop();
-    } else {
-      start();
-    }
+    if (listening) stop();
+    else start();
   }, [listening, start, stop]);
 
-  // Listen for global shortcut from main process
   useEffect(() => {
     api.onToggleRecording(() => {
       toggle();
     });
-  }, [api, toggle]);
+    api.onCancelRecording(() => {
+      cancel();
+    });
+  }, [api, toggle, cancel]);
 
   return { listening, processing, interim, toggle, start, stop };
 }
