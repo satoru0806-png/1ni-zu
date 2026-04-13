@@ -132,6 +132,7 @@ export function useSpeechRecognition({
           const result = await api.processVoice(rawText, context);
           voiceResult = {
             cleaned: result.cleaned || rawText,
+            raw: rawText,
             tasks: result.tasks,
             error: result.error,
           };
@@ -143,7 +144,7 @@ export function useSpeechRecognition({
           }
         } else {
           const corrected = autoCorrect(rawText);
-          voiceResult = { cleaned: corrected };
+          voiceResult = { cleaned: corrected, raw: rawText };
           playSound("done");
         }
 

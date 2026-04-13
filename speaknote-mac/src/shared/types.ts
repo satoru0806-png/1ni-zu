@@ -2,6 +2,7 @@ export type AppVoiceContext = "free_text" | "daytime_memo" | "morning_mit";
 
 export type VoiceResult = {
   cleaned: string;
+  raw?: string;
   tasks?: string[];
   error?: string;
 };

@@ -1,4 +1,4 @@
-import { getPrompt } from "../shared/voice-ai";
+import { buildSystemPrompt, FEW_SHOT_EXAMPLES } from "../shared/voice-ai";
 import type { AppVoiceContext, DictionaryEntry, VoiceResult } from "../shared/types";
 
 export async function processVoice(
@@ -16,12 +16,18 @@ export async function processVoice(
   }
 
   const names = dictionary.map((d) => d.to?.trim()).filter(Boolean);
-  const namesSection =
-    names.length > 0
-      ? `\n\n【優先人名・固有名詞リスト】\n以下が出現する可能性が高いです。音声認識の誤変換と思われる場合、これらを優先してください:\n${names.join("、")}`
-      : "";
+  const systemPrompt = buildSystemPrompt(context || "free_text", names);
 
-  const systemPrompt = getPrompt(context || "free_text") + namesSection;
+  // few-shot 例を user/assistant 交互メッセージとして展開
+  const fewShotMessages = FEW_SHOT_EXAMPLES.flatMap((ex) => [
+    { role: "user" as const, content: `<stt_input>${ex.user}</stt_input>` },
+    { role: "assistant" as const, content: ex.assistant },
+  ]);
+
+  const messages = [
+    ...fewShotMessages,
+    { role: "user" as const, content: `<stt_input>${rawText}</stt_input>` },
+  ];
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -35,7 +41,7 @@ export async function processVoice(
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
         system: systemPrompt,
-        messages: [{ role: "user", content: rawText }],
+        messages,
       }),
     });
 
@@ -52,12 +58,19 @@ export async function processVoice(
     }
 
     const data = await res.json();
-    const text = data.content?.[0]?.text || rawText;
+    const text = (data.content?.[0]?.text || rawText).trim();
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed: VoiceResult = JSON.parse(jsonMatch[0]);
-      return parsed;
+    // morning_mit のときだけ JSON 抽出を試みる
+    if (context === "morning_mit") {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed: VoiceResult = JSON.parse(jsonMatch[0]);
+          if (parsed.cleaned) return parsed;
+        } catch {
+          // JSON parse 失敗時はそのまま本文として扱う
+        }
+      }
     }
 
     return { cleaned: text };
