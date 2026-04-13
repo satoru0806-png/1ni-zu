@@ -1,10 +1,11 @@
 import { getPrompt } from "../shared/voice-ai";
-import type { AppVoiceContext, VoiceResult } from "../shared/types";
+import type { AppVoiceContext, DictionaryEntry, VoiceResult } from "../shared/types";
 
 export async function processVoice(
   rawText: string,
   context: AppVoiceContext,
-  apiKey: string
+  apiKey: string,
+  dictionary: DictionaryEntry[] = []
 ): Promise<VoiceResult> {
   if (!rawText || !rawText.trim()) {
     return { cleaned: "", tasks: [] };
@@ -14,7 +15,13 @@ export async function processVoice(
     return { cleaned: rawText, error: "APIキーが設定されていません。設定画面で入力してください。" };
   }
 
-  const systemPrompt = getPrompt(context || "free_text");
+  const names = dictionary.map((d) => d.to?.trim()).filter(Boolean);
+  const namesSection =
+    names.length > 0
+      ? `\n\n【優先人名・固有名詞リスト】\n以下が出現する可能性が高いです。音声認識の誤変換と思われる場合、これらを優先してください:\n${names.join("、")}`
+      : "";
+
+  const systemPrompt = getPrompt(context || "free_text") + namesSection;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {

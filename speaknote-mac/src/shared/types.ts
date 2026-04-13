@@ -15,6 +15,11 @@ export type HistoryEntry = {
   timestamp: number;
 };
 
+export type DictionaryEntry = {
+  from: string; // 読み (誤認識されやすい音)
+  to: string;   // 表記 (正しい人名・固有名詞)
+};
+
 export type AppSettings = {
   apiKey: string;
   openaiApiKey: string;
@@ -22,6 +27,7 @@ export type AppSettings = {
   autoCopy: boolean;
   autoPaste: boolean;
   transcribePrompt: string;
+  dictionary: DictionaryEntry[];
 };
 
 export type TranscribeResult = {

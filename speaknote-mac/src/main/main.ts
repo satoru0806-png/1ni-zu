@@ -287,7 +287,12 @@ function setupIPC(): void {
     "process-voice",
     async (_event, rawText: string, context: AppVoiceContext) => {
       const settings = getSettings();
-      return processVoice(rawText, context, settings.apiKey);
+      return processVoice(
+        rawText,
+        context,
+        settings.apiKey,
+        settings.dictionary ?? []
+      );
     }
   );
 
@@ -299,7 +304,8 @@ function setupIPC(): void {
         audioBuffer,
         mimeType,
         settings.openaiApiKey,
-        settings.transcribePrompt
+        settings.transcribePrompt,
+        settings.dictionary ?? []
       );
     }
   );

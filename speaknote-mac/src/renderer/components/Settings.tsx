@@ -16,12 +16,37 @@ export function Settings({ onClose, onSettingsChange }: Props) {
     autoCopy: true,
     autoPaste: true,
     transcribePrompt: "",
+    dictionary: [],
   });
   const [saved, setSaved] = useState(false);
+  const [dictFrom, setDictFrom] = useState("");
+  const [dictTo, setDictTo] = useState("");
 
   useEffect(() => {
-    api.getSettings().then(setSettings);
+    api.getSettings().then((s) =>
+      setSettings({ ...s, dictionary: s.dictionary ?? [] })
+    );
   }, [api]);
+
+  const addDictEntry = () => {
+    const from = dictFrom.trim();
+    const to = dictTo.trim();
+    if (!from || !to) return;
+    if (settings.dictionary.some((d) => d.from === from)) return;
+    setSettings({
+      ...settings,
+      dictionary: [...settings.dictionary, { from, to }],
+    });
+    setDictFrom("");
+    setDictTo("");
+  };
+
+  const removeDictEntry = (from: string) => {
+    setSettings({
+      ...settings,
+      dictionary: settings.dictionary.filter((d) => d.from !== from),
+    });
+  };
 
   const handleSave = async () => {
     await api.saveSettings(settings);
@@ -145,6 +170,63 @@ export function Settings({ onClose, onSettingsChange }: Props) {
               }`}
             />
           </button>
+        </div>
+
+        {/* Dictionary */}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            辞書 (人名・固有名詞)
+          </label>
+          <div className="flex gap-1.5 mb-2">
+            <input
+              type="text"
+              value={dictFrom}
+              onChange={(e) => setDictFrom(e.target.value)}
+              placeholder="読み (例: たなか)"
+              className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <input
+              type="text"
+              value={dictTo}
+              onChange={(e) => setDictTo(e.target.value)}
+              placeholder="表記 (例: 田中)"
+              className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addDictEntry();
+              }}
+            />
+            <button
+              onClick={addDictEntry}
+              className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg"
+            >
+              追加
+            </button>
+          </div>
+          {settings.dictionary.length > 0 && (
+            <div className="border border-gray-200 rounded-lg max-h-32 overflow-y-auto">
+              {settings.dictionary.map((d) => (
+                <div
+                  key={d.from}
+                  className="flex items-center justify-between px-2 py-1 text-xs border-b border-gray-100 last:border-b-0"
+                >
+                  <span className="text-gray-600">
+                    <span className="text-gray-400">{d.from}</span>
+                    <span className="mx-1.5">→</span>
+                    <span>{d.to}</span>
+                  </span>
+                  <button
+                    onClick={() => removeDictEntry(d.from)}
+                    className="text-red-400 hover:text-red-600 px-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-1 text-xs text-gray-400">
+            Whisper のヒント + AI整形時の優先候補として使用されます
+          </p>
         </div>
 
         {/* Auto Paste */}

@@ -15,6 +15,7 @@ const store = new Store<StoreSchema>({
       autoCopy: true,
       autoPaste: true,
       transcribePrompt: "",
+      dictionary: [],
     },
     history: [],
   },
