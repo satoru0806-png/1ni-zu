@@ -29,6 +29,25 @@ export function ResultArea({ result, interim, listening }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleLine = async () => {
+    if (!displayText) return;
+    await api.sendToLine(displayText);
+  };
+
+  const handleMail = async () => {
+    if (!displayText) return;
+    await api.sendToMail(displayText);
+  };
+
+  const handleNotes = async () => {
+    if (!displayText) return;
+    try {
+      await api.saveToNotes(displayText);
+    } catch {
+      // 失敗時は親側でハンドルされない (静かに失敗)
+    }
+  };
+
   if (listening && interim) {
     return (
       <div className="bg-gray-50 rounded-lg p-3 min-h-[120px]">
@@ -90,6 +109,31 @@ export function ResultArea({ result, interim, listening }: Props) {
       >
         {displayText}
       </p>
+
+      {/* Send-to action row */}
+      <div className="mt-3 flex items-center gap-1.5">
+        <button
+          onClick={handleLine}
+          className="flex-1 px-2 py-1.5 text-xs font-medium rounded-md bg-[#06C755] text-white hover:opacity-90 transition-opacity"
+          title="LINEで送る"
+        >
+          LINE
+        </button>
+        <button
+          onClick={handleMail}
+          className="flex-1 px-2 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+          title="メールで送る"
+        >
+          メール
+        </button>
+        <button
+          onClick={handleNotes}
+          className="flex-1 px-2 py-1.5 text-xs font-medium rounded-md bg-yellow-500 text-white hover:bg-yellow-600 transition-colors"
+          title="メモに保存"
+        >
+          メモ
+        </button>
+      </div>
 
       {/* Tasks */}
       {!showRaw && result.tasks && result.tasks.length > 0 && (

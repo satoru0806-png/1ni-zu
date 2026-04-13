@@ -16,6 +16,8 @@ const store = new Store<StoreSchema>({
       autoPaste: true,
       transcribePrompt: "",
       dictionary: [],
+      vadEnabled: false,
+      vadSilenceMs: 1500,
     },
     history: [],
   },

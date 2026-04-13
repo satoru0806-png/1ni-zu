@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld("speaknoteAPI", {
   copyToClipboard: (text: string) =>
     ipcRenderer.invoke("copy-to-clipboard", text),
   pasteToPreviousApp: () => ipcRenderer.invoke("paste-to-previous-app"),
+  sendToLine: (text: string) => ipcRenderer.invoke("send-to-line", text),
+  sendToMail: (text: string) => ipcRenderer.invoke("send-to-mail", text),
+  saveToNotes: (text: string) => ipcRenderer.invoke("save-to-notes", text),
   setRecordingState: (state: "idle" | "recording" | "processing") =>
     ipcRenderer.invoke("set-recording-state", state),
   getSettings: () => ipcRenderer.invoke("get-settings"),

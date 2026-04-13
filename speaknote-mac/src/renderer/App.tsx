@@ -5,6 +5,7 @@ import { Settings } from "./components/Settings";
 import { HistoryList } from "./components/HistoryList";
 import { ModeSelector } from "./components/ModeSelector";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
+import { useVAD } from "./hooks/useVAD";
 import { useElectronAPI } from "./hooks/useElectronAPI";
 import type { AppSettings, AppVoiceContext, VoiceResult } from "../shared/types";
 
@@ -35,6 +36,8 @@ export function App() {
   const [mode, setMode] = useState<AppVoiceContext>("free_text");
   const [hasApiKey, setHasApiKey] = useState(true);
   const [hasOpenaiKey, setHasOpenaiKey] = useState(true);
+  const [vadEnabled, setVadEnabled] = useState(false);
+  const [vadSilenceMs, setVadSilenceMs] = useState(1500);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,8 @@ export function App() {
       setAutoPaste(s.autoPaste ?? true);
       setHasApiKey(!!s.apiKey);
       setHasOpenaiKey(!!s.openaiApiKey);
+      setVadEnabled(!!s.vadEnabled);
+      setVadSilenceMs(s.vadSilenceMs ?? 1500);
     });
   }, [api]);
 
@@ -57,7 +62,7 @@ export function App() {
     setToast(message);
   }, []);
 
-  const { listening, processing, interim, toggle } = useSpeechRecognition({
+  const { listening, processing, interim, toggle, start, stop } = useSpeechRecognition({
     context: mode,
     autoCopy,
     autoPaste,
@@ -65,11 +70,21 @@ export function App() {
     onError: handleError,
   });
 
+  useVAD({
+    enabled: vadEnabled && hasOpenaiKey,
+    busy: listening || processing,
+    silenceMs: vadSilenceMs,
+    onStart: start,
+    onSilence: stop,
+  });
+
   const handleSettingsChange = (settings: AppSettings) => {
     setAutoCopy(settings.autoCopy);
     setAutoPaste(settings.autoPaste);
     setHasApiKey(!!settings.apiKey);
     setHasOpenaiKey(!!settings.openaiApiKey);
+    setVadEnabled(!!settings.vadEnabled);
+    setVadSilenceMs(settings.vadSilenceMs ?? 1500);
   };
 
   if (view === "settings") {

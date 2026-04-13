@@ -17,6 +17,8 @@ export function Settings({ onClose, onSettingsChange }: Props) {
     autoPaste: true,
     transcribePrompt: "",
     dictionary: [],
+    vadEnabled: false,
+    vadSilenceMs: 1500,
   });
   const [saved, setSaved] = useState(false);
   const [dictFrom, setDictFrom] = useState("");
@@ -24,7 +26,12 @@ export function Settings({ onClose, onSettingsChange }: Props) {
 
   useEffect(() => {
     api.getSettings().then((s) =>
-      setSettings({ ...s, dictionary: s.dictionary ?? [] })
+      setSettings({
+        ...s,
+        dictionary: s.dictionary ?? [],
+        vadEnabled: s.vadEnabled ?? false,
+        vadSilenceMs: s.vadSilenceMs ?? 1500,
+      })
     );
   }, [api]);
 
@@ -251,6 +258,55 @@ export function Settings({ onClose, onSettingsChange }: Props) {
               }`}
             />
           </button>
+        </div>
+
+        {/* VAD (hands-free) */}
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-700">
+                ハンズフリーモード (VAD)
+              </p>
+              <p className="text-xs text-gray-400">
+                発話を検出して自動で録音開始・停止
+              </p>
+            </div>
+            <button
+              onClick={() =>
+                setSettings({ ...settings, vadEnabled: !settings.vadEnabled })
+              }
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                settings.vadEnabled ? "bg-blue-500" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                  settings.vadEnabled ? "translate-x-5" : ""
+                }`}
+              />
+            </button>
+          </div>
+          {settings.vadEnabled && (
+            <div className="mt-2">
+              <label className="block text-xs text-gray-500 mb-1">
+                無音停止までの時間: {settings.vadSilenceMs}ms
+              </label>
+              <input
+                type="range"
+                min={500}
+                max={4000}
+                step={100}
+                value={settings.vadSilenceMs}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    vadSilenceMs: parseInt(e.target.value, 10),
+                  })
+                }
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
       </div>
 

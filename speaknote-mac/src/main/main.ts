@@ -9,6 +9,7 @@ import {
   Menu,
   systemPreferences,
   session,
+  shell,
 } from "electron";
 import path from "node:path";
 import { processVoice } from "./anthropic";
@@ -316,6 +317,31 @@ function setupIPC(): void {
 
   ipcMain.handle("paste-to-previous-app", async () => {
     await pasteToPreviousApp();
+  });
+
+  ipcMain.handle("send-to-line", async (_event, text: string) => {
+    if (!text) return;
+    await shell.openExternal(
+      `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
+    );
+  });
+
+  ipcMain.handle("send-to-mail", async (_event, text: string) => {
+    if (!text) return;
+    await shell.openExternal(`mailto:?body=${encodeURIComponent(text)}`);
+  });
+
+  ipcMain.handle("save-to-notes", async (_event, text: string) => {
+    if (!text) return;
+    // Apple Notes に新規ノートとして追加 (1行目をタイトルにする)
+    const escaped = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const script = `tell application "Notes" to make new note with properties {body:"${escaped}"}`;
+    try {
+      await execFileAsync("osascript", ["-e", script]);
+    } catch (err) {
+      debugLog(`save-to-notes failed: ${err}`);
+      throw err;
+    }
   });
 
   ipcMain.handle(

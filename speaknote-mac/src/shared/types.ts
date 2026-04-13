@@ -29,6 +29,8 @@ export type AppSettings = {
   autoPaste: boolean;
   transcribePrompt: string;
   dictionary: DictionaryEntry[];
+  vadEnabled: boolean;
+  vadSilenceMs: number;
 };
 
 export type TranscribeResult = {
