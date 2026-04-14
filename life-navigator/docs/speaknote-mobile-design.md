@@ -111,3 +111,78 @@ Phase 2 で Vercel KV or Prisma に移行予定。
 - [ ] カレンダー登録 (`calshow:`)
 - [ ] リマインダー
 - [ ] 夢ナビの日記/MIT への流し込み
+
+---
+
+## 付録 A: API 動作確認 (curl)
+
+### ローカル動作確認
+```bash
+cd life-navigator
+# 1 つ目のターミナルで起動
+SPEAKNOTE_TOKEN=test123 ANTHROPIC_API_KEY=sk-ant-xxx npm run dev
+
+# 2 つ目のターミナルで叩く
+curl -X POST http://localhost:3000/api/speaknote \
+  -H "Authorization: Bearer test123" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"田中さんに30分遅れますって送って"}' | jq
+```
+
+期待出力:
+```json
+{
+  "shaped": "30分ほど遅れます。申し訳ございません。",
+  "recipient": { "id": "tanaka", "name": "田中", "email": "tanaka@example.com", ... },
+  "channel": "email",
+  "confidence": 0.9,
+  "reason": "田中さん=business、既定チャネル=email",
+  "needs_confirmation": false
+}
+```
+
+### 本番 (Vercel) 動作確認
+```bash
+curl -X POST https://<your-vercel-domain>/api/speaknote \
+  -H "Authorization: Bearer <SPEAKNOTE_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"明日10時に歯医者"}' | jq
+```
+
+---
+
+## 付録 B: Siri ショートカット作成手順 (iPhone で)
+
+1. **ショートカット** アプリを開く
+2. 右上 `+` で新規作成 → 名前を `SpeakNote` に
+3. 以下のアクションを順に追加:
+
+| # | アクション名 | 設定 |
+|---|---|---|
+| 1 | **テキストを読み上げる** | 内容: `どうぞ` / 声: 日本語 |
+| 2 | **テキストを音声入力** (Dictate Text) | 言語: 日本語 / 停止: 一時停止 |
+| 3 | **辞書** | キー `text` = (2 の結果), キー `context` = 辞書 { `now`: (現在の日付を ISO 8601 で) } |
+| 4 | **URL の内容を取得** | URL: `https://<your-vercel>/api/speaknote`<br>方法: POST<br>ヘッダ: `Authorization: Bearer <SPEAKNOTE_TOKEN>`<br>本文: JSON = (3 の辞書) |
+| 5 | **辞書の値を取得** | キー: `shaped` → 変数 `shaped` に保存 |
+| 6 | **辞書の値を取得** | キー: `channel` → 変数 `channel` に保存 |
+| 7 | **辞書の値を取得** | キー: `recipient` → 変数 `recipient` に保存 |
+| 8 | **テキストを読み上げる** | 内容: `<recipient.name> さんに <channel> で送ります。内容: <shaped>` |
+| 9 | **入力を要求** | 質問: `送信しますか?` / 入力タイプ: Yes/No |
+| 10 | **If [入力結果 = Yes]** | |
+| 10a | → **URL を開く** | (channel で分岐) |
+| 10a-line | If channel == "line" | `https://line.me/R/share?text=<shaped>` |
+| 10a-email | If channel == "email" | `mailto:<recipient.email>?body=<shaped>` |
+| 10a-sms | If channel == "sms" | `sms:<recipient.phone>&body=<shaped>` |
+| 11 | **テキストを読み上げる** | 内容: `送ります` (or キャンセル時: `キャンセルしました`) |
+
+4. ショートカットを保存
+5. 設定 → Siri → 「Hey Siri を有効化」
+6. 動作確認: 「Hey Siri, SpeakNote」→ 発話 → 確認 → 送信
+
+### CarPlay で使う
+- iPhone の **設定 → 一般 → CarPlay → (車名) → カスタマイズ**
+- SpeakNote ショートカットをダッシュボードに追加
+
+### ロック画面から使う
+- **設定 → Siri と検索 → ロック中に Siri を許可** をオン
+
