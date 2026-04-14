@@ -43,3 +43,6 @@ next-env.d.ts
 /src/generated/prisma
 
 .vercel
+
+# SpeakNote ローカル連絡先 DB (秘匿)
+/src/lib/speaknote-contacts.local.ts
