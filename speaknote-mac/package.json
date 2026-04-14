@@ -6,12 +6,14 @@
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {
-    "postinstall": "electron-rebuild -f -v 41.1.1 -a arm64",
-    "rebuild": "electron-rebuild -f -v 41.1.1 -a arm64",
+    "postinstall": "electron-rebuild -f -v 41.1.1",
+    "rebuild": "electron-rebuild -f -v 41.1.1",
     "build": "npm run rebuild && vite build",
     "start": "electron-forge start",
     "package": "npm run rebuild && electron-forge package",
+    "package:win": "npm run rebuild && electron-forge package --platform=win32 --arch=x64",
     "make": "npm run rebuild && electron-forge make",
+    "make:win": "npm run rebuild && electron-forge make --platform=win32 --arch=x64",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "dist": "npm run rebuild && electron-builder"

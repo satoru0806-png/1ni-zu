@@ -25,32 +25,24 @@ import type { AppVoiceContext, HistoryEntry } from "../shared/types";
 
 import { uIOhook, UiohookKey } from "uiohook-napi";
 import fs from "node:fs";
-import { execFile, execFileSync } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import os from "node:os";
+import pathMod from "node:path";
+import {
+  IS_MAC,
+  captureFrontmostApp as platformCaptureFrontmost,
+  pasteToApp,
+  saveToNotes as platformSaveToNotes,
+} from "./platform";
 
 let previousApp: string | null = null;
 
 function captureFrontmostApp(): void {
-  try {
-    const stdout = execFileSync(
-      "osascript",
-      [
-        "-e",
-        'tell application "System Events" to get name of first application process whose frontmost is true',
-      ],
-      { encoding: "utf8", timeout: 1000 }
-    );
-    const name = stdout.trim();
-    if (name && name !== "SpeakNote" && name !== "Electron") {
-      previousApp = name;
-      debugLog(`captured frontmost: ${name}`);
-    } else {
-      debugLog(`captureFrontmostApp skipped: "${name}"`);
-    }
-  } catch (err) {
-    debugLog(`captureFrontmostApp failed: ${err}`);
+  const name = platformCaptureFrontmost();
+  if (name) {
+    previousApp = name;
+    debugLog(`captured frontmost: ${name}`);
+  } else {
+    debugLog(`captureFrontmostApp skipped/failed`);
   }
 }
 
@@ -63,24 +55,21 @@ async function pasteToPreviousApp(): Promise<void> {
   if (mainWindow?.isVisible()) mainWindow.hide();
   await new Promise((r) => setTimeout(r, 120));
   try {
-    await execFileAsync("osascript", [
-      "-e",
-      `tell application "${target}" to activate`,
-      "-e",
-      "delay 0.15",
-      "-e",
-      'tell application "System Events" to keystroke "v" using command down',
-    ]);
+    await pasteToApp(target);
     debugLog(`pasted to ${target}`);
   } catch (err) {
     debugLog(`pasteToPreviousApp failed: ${err}`);
   }
 }
 
-const LOG_FILE = "/tmp/speaknote-debug.log";
+const LOG_FILE = pathMod.join(os.tmpdir(), "speaknote-debug.log");
 function debugLog(msg: string): void {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFileSync(LOG_FILE, line);
+  try {
+    fs.appendFileSync(LOG_FILE, line);
+  } catch {
+    // ignore
+  }
 }
 
 // Vite dev server URL (injected by Electron Forge)
@@ -100,10 +89,14 @@ function createWindow(): BrowserWindow {
     resizable: true,
     skipTaskbar: false,
     transparent: false,
-    titleBarStyle: "hiddenInset",
-    vibrancy: "under-window",
-    visualEffectState: "active",
     title: "SpeakNote",
+    ...(IS_MAC
+      ? {
+          titleBarStyle: "hiddenInset" as const,
+          vibrancy: "under-window" as const,
+          visualEffectState: "active" as const,
+        }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -202,10 +195,12 @@ function createTray(): void {
   const icon = nativeImage.createFromDataURL(
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAhElEQVQ4T2NkoBNgpJO5DKMGk+xpxqGfFP4zMHxhYGD4z8DI+B8oxsjAyMDA8J+R8T8jE+N/BoYvDIz/vzAx/v/CyMhwhYGB4QIeN1xgZGS8QMhgRgYGCwYGBgsGBob/hNxwgZGR0YJQUiDGYEIGE0oKxBhMahokJOHRpEByUhgdDQAAFg8mBc/bS3IAAAAAElFTkSuQmCC"
   );
-  icon.setTemplateImage(true);
+  if (IS_MAC) icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip("SpeakNote - 右Command長押しで録音");
+  tray.setToolTip(
+    IS_MAC ? "SpeakNote - 右Command長押しで録音" : "SpeakNote - 右Ctrlで録音"
+  );
 
   tray.on("click", () => {
     toggleWindow();
@@ -219,7 +214,7 @@ function createTray(): void {
       },
       { type: "separator" },
       {
-        label: "右Command長押しで録音開始",
+        label: IS_MAC ? "右Command長押しで録音開始" : "右Ctrlで録音開始",
         enabled: false,
       },
       { type: "separator" },
@@ -235,21 +230,21 @@ function createTray(): void {
 let recordingState: "idle" | "recording" | "processing" = "idle";
 
 function setupKeyboardHook(): void {
-  // Right Command key detection via uiohook-napi
-  const RIGHT_META = UiohookKey.MetaRight;
+  // 録音トリガキー: macOS は右Cmd、Windows は右Ctrl (右Winは Start メニュー競合のため不可)
+  const TRIGGER_KEY = IS_MAC ? UiohookKey.MetaRight : UiohookKey.CtrlRight;
   const ESC = UiohookKey.Escape;
-  let rightMetaDown = false;
-  let rightMetaUsedAsCombo = false;
+  let triggerDown = false;
+  let triggerUsedAsCombo = false;
 
-  debugLog(`RIGHT_META keycode: ${RIGHT_META}`);
+  debugLog(`TRIGGER keycode: ${TRIGGER_KEY}`);
 
   uIOhook.on("keydown", (e) => {
     debugLog(`keydown: ${e.keycode}`);
-    if (e.keycode === RIGHT_META) {
-      rightMetaDown = true;
-      rightMetaUsedAsCombo = false;
-    } else if (rightMetaDown) {
-      rightMetaUsedAsCombo = true;
+    if (e.keycode === TRIGGER_KEY) {
+      triggerDown = true;
+      triggerUsedAsCombo = false;
+    } else if (triggerDown) {
+      triggerUsedAsCombo = true;
     }
     if (e.keycode === ESC && recordingState === "recording") {
       debugLog("cancel-recording!");
@@ -259,13 +254,13 @@ function setupKeyboardHook(): void {
 
   uIOhook.on("keyup", (e) => {
     debugLog(`keyup: ${e.keycode}`);
-    if (e.keycode === RIGHT_META) {
-      if (rightMetaDown && !rightMetaUsedAsCombo) {
+    if (e.keycode === TRIGGER_KEY) {
+      if (triggerDown && !triggerUsedAsCombo) {
         debugLog("triggerRecording!");
         triggerRecording();
       }
-      rightMetaDown = false;
-      rightMetaUsedAsCombo = false;
+      triggerDown = false;
+      triggerUsedAsCombo = false;
     }
   });
 
@@ -333,11 +328,8 @@ function setupIPC(): void {
 
   ipcMain.handle("save-to-notes", async (_event, text: string) => {
     if (!text) return;
-    // Apple Notes に新規ノートとして追加 (1行目をタイトルにする)
-    const escaped = text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-    const script = `tell application "Notes" to make new note with properties {body:"${escaped}"}`;
     try {
-      await execFileAsync("osascript", ["-e", script]);
+      await platformSaveToNotes(text);
     } catch (err) {
       debugLog(`save-to-notes failed: ${err}`);
       throw err;
