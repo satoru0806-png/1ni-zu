@@ -110,7 +110,9 @@ export function useVAD({
       rafRef.current = null;
       sourceRef.current?.disconnect();
       analyserRef.current?.disconnect();
-      audioCtxRef.current?.close().catch(() => {});
+      audioCtxRef.current?.close().catch((err) => {
+        console.warn("AudioContext close failed:", err);
+      });
       streamRef.current?.getTracks().forEach((t) => t.stop());
       sourceRef.current = null;
       analyserRef.current = null;
