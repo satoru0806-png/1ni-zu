@@ -127,8 +127,9 @@ export default function LoginPage() {
         ) : (
           !isSignUp && (
             <button
+              type="button"
               onClick={handleResetPassword}
-              className="w-full text-center text-sm text-gray-400 mt-3"
+              className="w-full text-center text-sm text-blue-500 underline mt-3 cursor-pointer"
             >
               パスワードを忘れた方はこちら
             </button>
