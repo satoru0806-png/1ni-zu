@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -11,23 +11,54 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [checking, setChecking] = useState(true);
-  const supabase = createClient();
+  const supabaseRef = useRef(createClient());
   const router = useRouter();
 
   useEffect(() => {
-    // createBrowserClient は ?code= を自動でセッション交換する（detectSessionInUrl=true）
-    // 少し待ってからセッション確認
-    const timer = setTimeout(async () => {
+    const supabase = supabaseRef.current;
+    let mounted = true;
+
+    async function init() {
+      // URL の ?code=xxx を手動で交換（PKCE フロー）
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code);
+          // URL から code を除去（履歴汚染防止）
+          window.history.replaceState({}, "", window.location.pathname);
+        } catch {
+          // 既に交換済みの場合もエラーが出るので握りつぶす
+        }
+      }
+      // セッション確認
       const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
       if (data.session) {
         setSessionReady(true);
       } else {
         setError("リセットリンクが無効または期限切れです。もう一度メールをリクエストしてください。");
       }
       setChecking(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [supabase]);
+    }
+
+    init();
+
+    // 認証状態変化も監視（PASSWORD_RECOVERY / SIGNED_IN）
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) {
+        setSessionReady(true);
+        setError("");
+        setChecking(false);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +72,7 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     setError("");
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await supabaseRef.current.auth.updateUser({ password });
     setLoading(false);
     if (updateError) {
       setError(updateError.message);
