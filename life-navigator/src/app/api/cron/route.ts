@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import webpush from "web-push";
 import { getTodayTheme } from "@/lib/daily-themes";
@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: true, hour: h });
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
+  // 全ユーザーのサブスクリプションにPush送信（user_id無関係）
   const { data: subs } = await supabase.from("push_subscriptions").select("*");
 
   if (!subs || subs.length === 0) {

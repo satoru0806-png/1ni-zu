@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, OWNER_USER_ID } from "@/lib/supabase/admin";
 import { todayString } from "@/lib/utils";
 import { getTodayTheme } from "@/lib/daily-themes";
 
@@ -9,13 +9,14 @@ export async function POST(req: NextRequest) {
   if (key !== process.env.WATCH_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!OWNER_USER_ID) return NextResponse.json({ error: "OWNER_USER_ID not configured" }, { status: 500 });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const body = await req.json();
   const date = body.date || todayString();
 
   // upsert用データ構築
-  const data: Record<string, unknown> = { date };
+  const data: Record<string, unknown> = { date, user_id: OWNER_USER_ID };
   if (body.mit1 !== undefined) data.mit1 = body.mit1;
   if (body.mit2 !== undefined) data.mit2 = body.mit2;
   if (body.mit3 !== undefined) data.mit3 = body.mit3;
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabase
     .from("day_logs")
-    .upsert(data, { onConflict: "date" });
+    .upsert(data, { onConflict: "user_id,date" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
@@ -47,8 +48,9 @@ export async function GET(req: NextRequest) {
   if (key !== process.env.WATCH_API_KEY) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!OWNER_USER_ID) return NextResponse.json({ error: "OWNER_USER_ID not configured" }, { status: 500 });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const date = todayString();
   const theme = getTodayTheme();
 
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest) {
   const { data: dreams } = await supabase
     .from("dreams")
     .select("text")
+    .eq("user_id", OWNER_USER_ID)
     .order("id", { ascending: true })
     .limit(3);
 
@@ -63,8 +66,9 @@ export async function GET(req: NextRequest) {
   const { data: dayLog } = await supabase
     .from("day_logs")
     .select("*")
+    .eq("user_id", OWNER_USER_ID)
     .eq("date", date)
-    .single();
+    .maybeSingle();
 
   // 前日のスコア（今日のログがない場合）
   let scores = {
@@ -81,10 +85,11 @@ export async function GET(req: NextRequest) {
     const { data: prev } = await supabase
       .from("day_logs")
       .select("relationship_score, money_score, work_score, health_score")
+      .eq("user_id", OWNER_USER_ID)
       .lt("date", date)
       .order("date", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     if (prev) {
       scores = {
         relationship: prev.relationship_score,

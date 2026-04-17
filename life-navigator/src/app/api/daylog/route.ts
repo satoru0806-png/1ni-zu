@@ -11,16 +11,17 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date") || todayString();
 
-  const { data: log } = await supabase.from("day_logs").select("*").eq("date", date).single();
+  const { data: log } = await supabase.from("day_logs").select("*").eq("user_id", user.id).eq("date", date).maybeSingle();
 
   if (!log) {
     const { data: prev } = await supabase
       .from("day_logs")
       .select("*")
+      .eq("user_id", user.id)
       .lt("date", date)
       .order("date", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     return NextResponse.json({
       date,
@@ -66,18 +67,18 @@ export async function POST(req: NextRequest) {
   if (memoSummary !== undefined) data.memo_summary = memoSummary;
   if (memoTasksJson !== undefined) data.memo_tasks_json = memoTasksJson;
 
-  // Upsert
-  const { data: existing } = await supabase.from("day_logs").select("id").eq("date", date).single();
+  // Upsert (user_idスコープ)
+  const { data: existing } = await supabase.from("day_logs").select("id").eq("user_id", user.id).eq("date", date).maybeSingle();
 
   let log;
   if (existing) {
     const { data: updated, error } = await supabase
-      .from("day_logs").update(data).eq("date", date).select().single();
+      .from("day_logs").update(data).eq("user_id", user.id).eq("date", date).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     log = updated;
   } else {
     const { data: created, error } = await supabase
-      .from("day_logs").insert({ date, ...data }).select().single();
+      .from("day_logs").insert({ date, user_id: user.id, ...data }).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     log = created;
   }

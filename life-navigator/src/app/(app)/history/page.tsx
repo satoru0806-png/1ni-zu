@@ -11,6 +11,13 @@ type DayLog = {
   gratitude_note?: string | null;
   tomorrow_plan?: string | null;
   memo_raw?: string | null;
+  ai_diary?: string | null;
+  ai_advice?: string | null;
+  ai_insight?: string | null;
+  relationship_score?: number;
+  money_score?: number;
+  work_score?: number;
+  health_score?: number;
   empty?: boolean;
 };
 
@@ -43,6 +50,17 @@ function nextMonth(ym: string): string {
   return d.toISOString().slice(0, 7);
 }
 
+function addDays(dateStr: string, diff: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+
+function isFutureDate(dateStr: string): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  return dateStr > today;
+}
+
 export default function HistoryPage() {
   return (
     <Suspense fallback={<div className="text-center py-8 text-gray-400">Loading...</div>}>
@@ -56,35 +74,232 @@ function HistoryContent() {
   const [selected, setSelected] = useState<DayLog | null>(null);
   const [month, setMonth] = useState(getCurrentMonth());
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [edit, setEdit] = useState<DayLog | null>(null);
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const url = viewMode === "month"
-      ? `/api/history?month=${month}`
-      : "/api/history";
+  const navigateDay = async (diff: number) => {
+    if (!selected) return;
+    const newDate = addDays(selected.date, diff);
+    try {
+      const res = await fetch(`/api/daylog?date=${newDate}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("取得失敗");
+      const data = await res.json();
+      setSelected({ ...data, date: newDate });
+      setEditing(false);
+      setEdit(null);
+    } catch {
+      setSelected({ date: newDate, empty: true });
+    }
+  };
 
-    fetch(url).then((r) => r.json()).then((data: DayLog[]) => {
-      setHistory(data);
+  const startEdit = () => {
+    if (!selected) return;
+    setEdit({ ...selected });
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setEdit(null);
+  };
+
+  const saveEdit = async () => {
+    if (!edit) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/daylog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: edit.date,
+          mit1: edit.mit1 ?? "",
+          mit2: edit.mit2 ?? "",
+          mit3: edit.mit3 ?? "",
+          doneNote: edit.done_note ?? "",
+          gratitudeNote: edit.gratitude_note ?? "",
+          tomorrowPlan: edit.tomorrow_plan ?? "",
+          memoRaw: edit.memo_raw ?? "",
+        }),
+      });
+      if (!res.ok) throw new Error("保存失敗");
+      // 保存後に最新データをサーバーから再取得（整合性確保）
+      const freshRes = await fetch(`/api/daylog?date=${edit.date}`, { cache: "no-store" });
+      const fresh = await freshRes.json();
+      setSelected(fresh);
+      setEditing(false);
+      setEdit(null);
+      // 履歴リストも再取得
+      await loadHistory();
+    } catch (e) {
+      alert("保存に失敗しました: " + (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const loadHistory = async () => {
+    const url = viewMode === "month" ? `/api/history?month=${month}` : "/api/history";
+    const res = await fetch(url, { cache: "no-store" });
+    const data: DayLog[] = await res.json();
+    setHistory(data);
+    return data;
+  };
+
+  useEffect(() => {
+    loadHistory().then((data) => {
       const dateParam = searchParams.get("date");
       if (dateParam) {
         const found = data.find((d) => d.date === dateParam);
         if (found && !("empty" in found && found.empty)) setSelected(found);
       }
     });
-  }, [searchParams, month, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, month, viewMode, refreshTick]);
+
+  // タブを戻ってきた時 / フォーカスが戻った時に自動再取得
+  useEffect(() => {
+    const onFocus = () => setRefreshTick((t) => t + 1);
+    const onVis = () => { if (document.visibilityState === "visible") setRefreshTick((t) => t + 1); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   // 詳細表示
   if (selected) {
     const doneNote = selected.done_note || "";
     const showDone = doneNote && !doneNote.startsWith("[");
+    const inputCls = "w-full text-sm border border-gray-300 rounded-lg p-2 focus:border-blue-500 focus:outline-none";
+
+    // 編集モード
+    if (editing && edit) {
+      const upd = (k: keyof DayLog, v: string) => setEdit({ ...edit, [k]: v });
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <button onClick={cancelEdit} className="text-sm text-gray-500 font-medium">キャンセル</button>
+            <h2 className="text-lg font-bold">{formatDate(edit.date)} を編集</h2>
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="text-sm bg-blue-600 text-white font-bold px-4 py-1.5 rounded-lg disabled:opacity-50"
+            >
+              {saving ? "保存中..." : "保存"}
+            </button>
+          </div>
+
+          <section className="bg-white rounded-xl p-4 shadow-sm space-y-2">
+            <h3 className="text-sm font-bold text-blue-600">📝 重要なこと</h3>
+            <input className={inputCls} placeholder="MIT 1" value={edit.mit1 ?? ""} onChange={(e) => upd("mit1", e.target.value)} />
+            <input className={inputCls} placeholder="MIT 2" value={edit.mit2 ?? ""} onChange={(e) => upd("mit2", e.target.value)} />
+            <input className={inputCls} placeholder="MIT 3" value={edit.mit3 ?? ""} onChange={(e) => upd("mit3", e.target.value)} />
+          </section>
+
+          <section className="bg-white rounded-xl p-4 shadow-sm space-y-3">
+            <h3 className="text-sm font-bold text-purple-600">💭 振り返り</h3>
+            <div>
+              <p className="text-xs font-semibold text-green-700 mb-1">😊 今日はどうだった？</p>
+              <textarea className={inputCls} rows={3} value={edit.done_note ?? ""} onChange={(e) => upd("done_note", e.target.value)} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-amber-600 mb-1">🙏 感謝</p>
+              <textarea className={inputCls} rows={2} value={edit.gratitude_note ?? ""} onChange={(e) => upd("gratitude_note", e.target.value)} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-blue-700 mb-1">🌅 明日の予定</p>
+              <textarea className={inputCls} rows={2} value={edit.tomorrow_plan ?? ""} onChange={(e) => upd("tomorrow_plan", e.target.value)} />
+            </div>
+          </section>
+
+          <section className="bg-white rounded-xl p-4 shadow-sm space-y-2">
+            <h3 className="text-sm font-bold text-green-600">🎤 メモ</h3>
+            <textarea className={inputCls} rows={4} value={edit.memo_raw ?? ""} onChange={(e) => upd("memo_raw", e.target.value)} />
+          </section>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-4">
-        <button onClick={() => setSelected(null)} className="text-sm text-blue-600 font-medium">
-          &larr; 一覧に戻る
-        </button>
+        <div className="flex items-center justify-between">
+          <button onClick={() => setSelected(null)} className="text-sm text-blue-600 font-medium">
+            &larr; 一覧に戻る
+          </button>
+          <button onClick={startEdit} className="text-sm bg-blue-600 text-white font-bold px-4 py-1.5 rounded-lg">
+            ✏️ 編集
+          </button>
+        </div>
 
-        <h2 className="text-lg font-bold">{formatDate(selected.date)}</h2>
+        {/* 日付ナビゲーション */}
+        <div className="flex items-center justify-between bg-white rounded-xl px-2 py-2 shadow-sm">
+          <button
+            onClick={() => navigateDay(-1)}
+            className="text-blue-600 text-sm font-bold px-3 py-1 hover:bg-blue-50 rounded"
+          >
+            ← 前日
+          </button>
+          <h2 className="text-lg font-bold">{formatDate(selected.date)}</h2>
+          <button
+            onClick={() => navigateDay(1)}
+            disabled={isFutureDate(addDays(selected.date, 1))}
+            className="text-blue-600 text-sm font-bold px-3 py-1 hover:bg-blue-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            翌日 →
+          </button>
+        </div>
+
+        {/* AI診断（あれば表示） */}
+        {(selected.ai_diary || selected.ai_advice) && (
+          <section className="bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-purple-700">🤖 AI診断</h3>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-purple-700">
+                  {Math.round(((selected.relationship_score ?? 50) + (selected.money_score ?? 50) + (selected.work_score ?? 50) + (selected.health_score ?? 50)) / 4)}
+                </span>
+                <span className="text-xs text-gray-500">/100</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: "💕関係", v: selected.relationship_score ?? 50, c: "text-pink-600" },
+                { label: "💰お金", v: selected.money_score ?? 50, c: "text-yellow-600" },
+                { label: "💼仕事", v: selected.work_score ?? 50, c: "text-blue-600" },
+                { label: "❤️健康", v: selected.health_score ?? 50, c: "text-green-600" },
+              ].map((d) => (
+                <div key={d.label} className="bg-white rounded-lg p-2 text-center">
+                  <div className={`text-lg font-bold ${d.c}`}>{d.v}</div>
+                  <div className="text-[10px] text-gray-500">{d.label}</div>
+                </div>
+              ))}
+            </div>
+            {selected.ai_diary && (
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-xs font-bold text-purple-700 mb-1">📖 日記</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{selected.ai_diary}</p>
+              </div>
+            )}
+            {selected.ai_insight && (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs font-bold text-amber-700 mb-1">🌱 自分では気づかない気づき</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{selected.ai_insight}</p>
+              </div>
+            )}
+            {selected.ai_advice && (
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-xs font-bold text-pink-600 mb-1">💝 AIからの一言</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{selected.ai_advice}</p>
+              </div>
+            )}
+          </section>
+        )}
 
         {(selected.mit1 || selected.mit2 || selected.mit3) && (
           <section className="bg-white rounded-xl p-4 shadow-sm">
@@ -231,6 +446,7 @@ function HistoryContent() {
                 <p className="text-xs text-gray-400 mt-1">記録なし</p>
               ) : (
                 <div className="mt-1 text-xs text-gray-500 space-y-0.5">
+                  {day.ai_diary && <p className="truncate text-purple-600">🤖 {day.ai_diary}</p>}
                   {day.mit1 && <p>📝 {day.mit1}</p>}
                   {showDone && <p className="truncate">💭 {doneNote}</p>}
                   {day.gratitude_note && <p className="truncate">🙏 {day.gratitude_note}</p>}

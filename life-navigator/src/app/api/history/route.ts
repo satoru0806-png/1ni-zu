@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     const { data: logs } = await supabase
       .from("day_logs")
       .select("*")
+      .eq("user_id", user.id)
       .gte("date", `${month}-01`)
       .lte("date", `${month}-31`)
       .order("date", { ascending: false });
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
   const { data: logs } = await supabase
     .from("day_logs")
     .select("*")
+    .eq("user_id", user.id)
     .in("date", days)
     .order("date", { ascending: false });
 

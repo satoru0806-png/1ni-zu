@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 type DayLog = {
   mit1: string | null;
@@ -7,19 +7,110 @@ type DayLog = {
   mit3: string | null;
   done_note: string | null;
   memo_raw: string | null;
+  relationship_score?: number;
+  money_score?: number;
+  work_score?: number;
+  health_score?: number;
+  ai_diary?: string | null;
+  ai_advice?: string | null;
+  ai_insight?: string | null;
 };
+
+type Scores = { rel: number; money: number; work: number; health: number };
+
+function trendArrow(now: number, prev: number): string {
+  if (now > prev + 2) return "↗";
+  if (now < prev - 2) return "↘";
+  return "→";
+}
+
+function trendColor(now: number, prev: number): string {
+  if (now > prev + 2) return "text-green-600";
+  if (now < prev - 2) return "text-red-500";
+  return "text-gray-400";
+}
+
+function DotGauge({ score, color }: { score: number; color: string }) {
+  const dots = Math.round(score / 20); // 0-5
+  return (
+    <div className="flex gap-0.5 justify-center">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span
+          key={i}
+          className={`inline-block w-1.5 h-1.5 rounded-full ${i < dots ? color : "bg-gray-200"}`}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function TodayPage() {
   const [mits, setMits] = useState(["", "", ""]);
   const [checks, setChecks] = useState([false, false, false]);
   const [memo, setMemo] = useState("");
   const [saved, setSaved] = useState(false);
+  const [scores, setScores] = useState<Scores>({ rel: 50, money: 50, work: 50, health: 50 });
+  const [prevScores, setPrevScores] = useState<Scores>({ rel: 50, money: 50, work: 50, health: 50 });
+  const [editingDomain, setEditingDomain] = useState<keyof Scores | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [aiDiary, setAiDiary] = useState<string>("");
+  const [aiAdvice, setAiAdvice] = useState<string>("");
+  const [aiInsight, setAiInsight] = useState<string>("");
+  const [isPro, setIsPro] = useState(false);
+  const [usageCount, setUsageCount] = useState(0);
+  const [usageLimit, setUsageLimit] = useState(3);
+  const [aiReasons, setAiReasons] = useState<{ rel: string; money: string; work: string; health: string } | null>(null);
+
+  const runAiDiagnosis = async () => {
+    setDiagnosing(true);
+    try {
+      const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "AI診断に失敗しました");
+        return;
+      }
+      const data = await res.json();
+      setScores(data.scores);
+      setAiDiary(data.diary);
+      setAiAdvice(data.advice);
+      setAiInsight(data.self_insight || "");
+      setAiReasons(data.reasons);
+      if (data.isPro !== undefined) setIsPro(data.isPro);
+      setUsageCount((prev) => prev + 1);
+    } catch (e) {
+      alert("診断エラー: " + (e as Error).message);
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const updateScore = (key: keyof Scores, val: number) => {
+    const next = { ...scores, [key]: val };
+    setScores(next);
+    // 自動保存（デバウンス不要、blur時でもOKだがリアルタイムで）
+    const dbField = key === "rel" ? "relationshipScore" : key === "money" ? "moneyScore" : key === "work" ? "workScore" : "healthScore";
+    fetch("/api/daylog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [dbField]: val }),
+    });
+  };
 
   useEffect(() => {
+    // 今日のデータ
     fetch("/api/daylog").then((r) => r.json()).then((data: DayLog) => {
       setMits([data.mit1 || "", data.mit2 || "", data.mit3 || ""]);
       setMemo(data.memo_raw || "");
-      // チェック状態をdone_noteから復元
+      setScores({
+        rel: data.relationship_score ?? 50,
+        money: data.money_score ?? 50,
+        work: data.work_score ?? 50,
+        health: data.health_score ?? 50,
+      });
+      setAiDiary(data.ai_diary || "");
+      setAiAdvice(data.ai_advice || "");
+      setAiInsight(data.ai_insight || "");
       if (data.done_note) {
         try {
           const parsed = JSON.parse(data.done_note);
@@ -29,7 +120,29 @@ export default function TodayPage() {
         }
       }
     });
+
+    // プラン情報取得
+    fetch("/api/user/plan").then((r) => r.json()).then((data) => {
+      setIsPro(data.isPro || false);
+      setUsageCount(data.usageThisMonth || 0);
+      setUsageLimit(data.limit === -1 ? -1 : data.limit || 3);
+    }).catch(() => {});
+
+    // 昨日のスコア（トレンド比較用）
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().slice(0, 10);
+    fetch(`/api/daylog?date=${yStr}`).then((r) => r.json()).then((data: DayLog) => {
+      setPrevScores({
+        rel: data.relationship_score ?? 50,
+        money: data.money_score ?? 50,
+        work: data.work_score ?? 50,
+        health: data.health_score ?? 50,
+      });
+    }).catch(() => {});
   }, []);
+
+  const avgScore = Math.round((scores.rel + scores.money + scores.work + scores.health) / 4);
 
   const save = useCallback(async () => {
     await fetch("/api/daylog", {
@@ -46,6 +159,22 @@ export default function TodayPage() {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, [mits, checks, memo]);
+
+  // 自動保存（2秒デバウンス）
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isInitialLoad = useRef(true);
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { save(); }, 2000);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [mits, memo, checks, save]);
+
+  // 初回ロード完了後に自動保存を有効化
+  useEffect(() => {
+    const timer = setTimeout(() => { isInitialLoad.current = false; }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const updateMit = (idx: number, val: string) => {
     const next = [...mits];
@@ -73,6 +202,103 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-6">
+      {/* バランスカード（4領域スコア可視化 - C+D統合） */}
+      <section className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold text-gray-700">🌅 今日のバランス</h2>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold text-purple-700">{avgScore}</span>
+            <span className="text-xs text-gray-500">/100</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { key: "rel", label: "関係", emoji: "💕", color: "bg-pink-500", now: scores.rel, prev: prevScores.rel, reason: aiReasons?.rel },
+            { key: "money", label: "お金", emoji: "💰", color: "bg-yellow-500", now: scores.money, prev: prevScores.money, reason: aiReasons?.money },
+            { key: "work", label: "仕事", emoji: "💼", color: "bg-blue-500", now: scores.work, prev: prevScores.work, reason: aiReasons?.work },
+            { key: "health", label: "健康", emoji: "❤️", color: "bg-green-500", now: scores.health, prev: prevScores.health, reason: aiReasons?.health },
+          ].map((d) => (
+            <div key={d.key} className="bg-white rounded-lg p-2 text-center shadow-sm">
+              <div className="text-lg leading-none mb-1">{d.emoji}</div>
+              <div className="text-sm font-bold text-gray-700">{d.now}</div>
+              <DotGauge score={d.now} color={d.color} />
+              <div className="flex items-center justify-center gap-0.5 mt-1">
+                <span className="text-[10px] text-gray-500">{d.label}</span>
+                <span className={`text-xs font-bold ${trendColor(d.now, d.prev)}`}>{trendArrow(d.now, d.prev)}</span>
+              </div>
+              {d.reason && (
+                <div className="text-[9px] text-gray-500 mt-1 leading-tight">{d.reason}</div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* AI診断ボタン */}
+        <button
+          onClick={runAiDiagnosis}
+          disabled={diagnosing}
+          className="mt-3 w-full py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-purple-500 to-pink-500 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-all active:scale-95"
+        >
+          {diagnosing ? "🤔 診断中..." : "🤖 今日の診断をお願いする"}
+        </button>
+        {!isPro && (
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              今月の診断: {usageCount}/{usageLimit}回（無料プラン）
+            </span>
+            <button
+              onClick={async () => {
+                const res = await fetch("/api/stripe/checkout", { method: "POST" });
+                const data = await res.json();
+                if (data.url) window.location.href = data.url;
+              }}
+              className="text-xs font-bold text-purple-600 underline"
+            >
+              Proにアップグレード →
+            </button>
+          </div>
+        )}
+
+        {/* AI日記＋アドバイス */}
+        {(aiDiary || aiAdvice || aiInsight) && (
+          <div className="mt-3 bg-white rounded-xl p-3 border border-purple-200 space-y-2">
+            {aiDiary && (
+              <div>
+                <p className="text-xs font-bold text-purple-700 mb-1">📖 今日の日記</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{aiDiary}</p>
+              </div>
+            )}
+            {aiInsight ? (
+              <div className="pt-2 border-t border-purple-100 bg-gradient-to-br from-amber-50 to-orange-50 -mx-3 px-3 py-2 rounded">
+                <p className="text-xs font-bold text-amber-700 mb-1">🌱 自分では気づかない気づき</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{aiInsight}</p>
+              </div>
+            ) : !isPro && aiDiary ? (
+              <div className="pt-2 border-t border-purple-100 bg-gradient-to-br from-gray-50 to-gray-100 -mx-3 px-3 py-2 rounded">
+                <p className="text-xs font-bold text-gray-400 mb-1">🔒 自分では気づかない気づき</p>
+                <p className="text-xs text-gray-400">Proプランで解放されます</p>
+                <button
+                  onClick={async () => {
+                    const res = await fetch("/api/stripe/checkout", { method: "POST" });
+                    const data = await res.json();
+                    if (data.url) window.location.href = data.url;
+                  }}
+                  className="mt-1 text-xs font-bold text-purple-600 underline"
+                >
+                  Proプラン（月額980円）→
+                </button>
+              </div>
+            ) : null}
+            {aiAdvice && (
+              <div className="pt-2 border-t border-purple-100">
+                <p className="text-xs font-bold text-pink-600 mb-1">💝 明日への一言</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{aiAdvice}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
       {/* 今日の大切なこと 3つ */}
       <section>
         <h2 className="text-lg font-bold mb-1">今日の大切なこと</h2>

@@ -9,8 +9,27 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+
+  async function handleResetPassword() {
+    if (!email) {
+      setError("メールアドレスを入力してください");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      setResetSent(true);
+      setError("");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,9 +120,24 @@ export default function LoginPage() {
           </button>
         </form>
 
+        {resetSent ? (
+          <p className="text-center text-sm text-green-600 mt-4">
+            パスワードリセットメールを送信しました。メールをご確認ください。
+          </p>
+        ) : (
+          !isSignUp && (
+            <button
+              onClick={handleResetPassword}
+              className="w-full text-center text-sm text-gray-400 mt-3"
+            >
+              パスワードを忘れた方はこちら
+            </button>
+          )
+        )}
+
         <button
-          onClick={() => { setIsSignUp(!isSignUp); setError(""); }}
-          className="w-full text-center text-sm text-blue-500 mt-4"
+          onClick={() => { setIsSignUp(!isSignUp); setError(""); setResetSent(false); }}
+          className="w-full text-center text-sm text-blue-500 mt-2"
         >
           {isSignUp ? "アカウントをお持ちの方はこちら" : "新規登録はこちら"}
         </button>
