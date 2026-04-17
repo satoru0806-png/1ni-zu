@@ -32,7 +32,8 @@ export async function updateSession(request: NextRequest) {
   // 未ログインで保護ページにアクセス → /login へ
   const isAuthPage =
     request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname === "/auth/callback";
+    request.nextUrl.pathname === "/auth/callback" ||
+    request.nextUrl.pathname === "/reset-password";
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
   const isPublicAsset =
     request.nextUrl.pathname.startsWith("/_next") ||
@@ -47,7 +48,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   // ログイン済みで /login にアクセス → ダッシュボードへ
-  if (user && isAuthPage) {
+  // （/reset-password は除外: リセット直後のユーザーもセッション持っている）
+  if (user && request.nextUrl.pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

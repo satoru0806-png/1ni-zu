@@ -19,8 +19,9 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${baseUrl}/reset-password`,
     });
     setLoading(false);
     if (error) {
