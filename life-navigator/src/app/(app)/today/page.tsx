@@ -247,12 +247,21 @@ export default function TodayPage() {
               今月の診断: {usageCount}/{usageLimit}回（無料プラン）
             </span>
             <button
+              type="button"
               onClick={async () => {
-                const res = await fetch("/api/stripe/checkout", { method: "POST" });
-                const data = await res.json();
-                if (data.url) window.location.href = data.url;
+                try {
+                  const res = await fetch("/api/stripe/checkout", { method: "POST" });
+                  const data = await res.json();
+                  if (data.url) {
+                    window.location.href = data.url;
+                  } else {
+                    alert(`アップグレードに失敗しました: ${data.error || "不明なエラー"}`);
+                  }
+                } catch (e) {
+                  alert(`通信エラー: ${(e as Error).message}`);
+                }
               }}
-              className="text-xs font-bold text-purple-600 underline"
+              className="text-xs font-bold text-purple-600 underline cursor-pointer"
             >
               Proにアップグレード →
             </button>
@@ -278,12 +287,21 @@ export default function TodayPage() {
                 <p className="text-xs font-bold text-gray-400 mb-1">🔒 自分では気づかない気づき</p>
                 <p className="text-xs text-gray-400">Proプランで解放されます</p>
                 <button
+                  type="button"
                   onClick={async () => {
-                    const res = await fetch("/api/stripe/checkout", { method: "POST" });
-                    const data = await res.json();
-                    if (data.url) window.location.href = data.url;
+                    try {
+                      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+                      const data = await res.json();
+                      if (data.url) {
+                        window.location.href = data.url;
+                      } else {
+                        alert(`アップグレードに失敗しました: ${data.error || "不明なエラー"}`);
+                      }
+                    } catch (e) {
+                      alert(`通信エラー: ${(e as Error).message}`);
+                    }
                   }}
-                  className="mt-1 text-xs font-bold text-purple-600 underline"
+                  className="mt-1 text-xs font-bold text-purple-600 underline cursor-pointer"
                 >
                   Proプラン（月額980円）→
                 </button>
