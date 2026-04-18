@@ -38,6 +38,7 @@ export async function POST() {
       customerId = customer.id;
       const { error: upsertErr } = await admin.from("profiles").upsert({
         id: user.id,
+        user_id: user.id,
         stripe_customer_id: customerId,
       });
       if (upsertErr) {

@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       if (userId) {
         await admin.from("profiles").upsert({
           id: userId,
+          user_id: userId,
           plan: "pro",
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
