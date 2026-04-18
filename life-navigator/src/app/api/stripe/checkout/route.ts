@@ -16,10 +16,11 @@ export async function POST() {
     const stripe = getStripe();
     const admin = createAdminClient();
 
+    // profilesテーブルは user_id (UNIQUE) で検索する
     const { data: profile, error: profileErr } = await admin
       .from("profiles")
       .select("stripe_customer_id")
-      .eq("id", user.id)
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (profileErr) {
@@ -36,11 +37,13 @@ export async function POST() {
         metadata: { supabase_user_id: user.id },
       });
       customerId = customer.id;
-      const { error: upsertErr } = await admin.from("profiles").upsert({
-        id: user.id,
-        user_id: user.id,
-        stripe_customer_id: customerId,
-      });
+      // user_id を conflict target に指定して既存行を更新 or 新規作成
+      const { error: upsertErr } = await admin
+        .from("profiles")
+        .upsert(
+          { user_id: user.id, stripe_customer_id: customerId },
+          { onConflict: "user_id" }
+        );
       if (upsertErr) {
         return NextResponse.json(
           { error: `Profile upsert failed: ${upsertErr.message}` },

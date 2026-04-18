@@ -11,7 +11,7 @@ export async function GET() {
   const { data: profile } = await supabase
     .from("profiles")
     .select("plan")
-    .eq("id", user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   const plan = profile?.plan || "free";

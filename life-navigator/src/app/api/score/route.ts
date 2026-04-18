@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Pro/無料プラン制限チェック
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", user.id).maybeSingle();
   const plan = profile?.plan || "free";
   const isPro = plan === "pro";
 

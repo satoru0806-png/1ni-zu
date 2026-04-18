@@ -26,13 +26,15 @@ export async function POST(req: NextRequest) {
       const session = event.data.object;
       const userId = session.metadata?.supabase_user_id;
       if (userId) {
-        await admin.from("profiles").upsert({
-          id: userId,
-          user_id: userId,
-          plan: "pro",
-          stripe_customer_id: session.customer as string,
-          stripe_subscription_id: session.subscription as string,
-        });
+        await admin.from("profiles").upsert(
+          {
+            user_id: userId,
+            plan: "pro",
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+          },
+          { onConflict: "user_id" }
+        );
       }
       break;
     }
