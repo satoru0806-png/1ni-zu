@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const [dayStartHour, setDayStartHour] = useState(2);
@@ -69,12 +70,21 @@ export default function SettingsPage() {
         <h3 className="text-sm font-bold text-amber-700 mb-2">🌟 人生ミッション</h3>
         <p className="text-xs text-gray-600 mb-3">
           あなたの人生の軸となる言葉。毎日のMITと照らし合わせる基準になります。<br />
-          例: 「自分の悩みを、誰かの『ありがとう』に変える道具を、一生作り続ける。」
+          決まっていない場合は、ウィザードがAIと一緒に言語化します。
         </p>
+
+        {/* ウィザード誘導 */}
+        <Link
+          href="/mission/create"
+          className="block text-center bg-white border-2 border-dashed border-amber-400 text-amber-700 text-xs font-bold px-3 py-2 rounded-lg mb-3 hover:bg-amber-50 transition-colors"
+        >
+          ✨ ミッション発見ウィザード（AIと対話して見つける）
+        </Link>
+
         <textarea
           value={mission}
           onChange={(e) => setMission(e.target.value)}
-          placeholder="自分のミッションを一文で..."
+          placeholder="直接入力する場合はここに一文で..."
           maxLength={500}
           rows={3}
           className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"

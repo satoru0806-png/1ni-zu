@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 
 type DayLog = {
   mit1: string | null;
@@ -213,7 +214,7 @@ export default function TodayPage() {
   return (
     <div className="space-y-6">
       {/* 人生ミッション常時表示 - 決まっていれば最上部に */}
-      {mission && (
+      {mission ? (
         <section className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 shadow-sm">
           <div className="flex items-start gap-2">
             <span className="text-amber-600 text-lg leading-none mt-0.5">🌟</span>
@@ -223,6 +224,21 @@ export default function TodayPage() {
             </div>
           </div>
         </section>
+      ) : (
+        /* ミッション未設定時の誘導バナー */
+        <Link
+          href="/mission/create"
+          className="block bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-dashed border-amber-400 rounded-xl p-3 shadow-sm hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🌟</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-700 mb-0.5">あなたのミッションを見つけましょう</p>
+              <p className="text-xs text-gray-600">AIと3つの質問で対話するだけ。人生の軸を言語化できます。</p>
+            </div>
+            <span className="text-amber-600 text-lg">→</span>
+          </div>
+        </Link>
       )}
 
       {/* バランスカード（4領域スコア可視化 - C+D統合） */}
