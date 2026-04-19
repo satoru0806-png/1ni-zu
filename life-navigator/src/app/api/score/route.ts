@@ -15,6 +15,8 @@ type ScoreResult = {
   reason_money: string;
   reason_work: string;
   reason_health: string;
+  mission_alignment?: string;
+  mission_score?: number;
 };
 
 export async function POST(req: NextRequest) {
@@ -37,10 +39,11 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  // Pro/無料プラン制限チェック
-  const { data: profile } = await supabase.from("profiles").select("plan").eq("user_id", user.id).maybeSingle();
+  // Pro/無料プラン制限チェック + ミッション取得
+  const { data: profile } = await supabase.from("profiles").select("plan, mission").eq("user_id", user.id).maybeSingle();
   const plan = profile?.plan || "free";
   const isPro = plan === "pro";
+  const mission = (profile?.mission || "").trim();
 
   if (!isPro) {
     const now = new Date();
@@ -74,9 +77,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "AI設定エラー" }, { status: 500 });
   }
 
+  const missionSection = mission ? `\n【このユーザーの人生ミッション】\n${mission}\n` : "";
+
   const userContent = `
 【日付】${date}
-
+${missionSection}
 【今日の大切なこと（MIT）】
 ${mitStatus || "（未設定）"}
 
@@ -117,6 +122,11 @@ ${safeLog.tomorrow_plan || "（なし）"}
    - とても充実していれば85-95
    - ネガティブな記録でも40以下にはしない（客観性は保ちつつ過度に低評価しない）
 5. **各領域の判定理由**: なぜそのスコアにしたかの短い理由（各領域20文字以内、肯定的表現）
+6. **mission_alignment**（ミッションが設定されている場合のみ）: 今日の行動がユーザーの人生ミッションにどう繋がっているか、1-2文で温かく伝える
+   - ミッションが空なら空文字を返す
+   - MITやメモの中からミッションに呼応する行動を見つけて言語化する
+   - 繋がりが弱い日も否定せず「今日は土台作りの日」など前向きに解釈
+7. **mission_score**（ミッションが設定されている場合のみ）: 今日の行動とミッションの合致度を0-100で評価。ミッションが空なら0を返す。
 
 必ず以下のJSON形式のみで返答してください（マークダウン・前置き・後書き禁止）：
 
@@ -131,7 +141,9 @@ ${safeLog.tomorrow_plan || "（なし）"}
   "reason_rel": "...",
   "reason_money": "...",
   "reason_work": "...",
-  "reason_health": "..."
+  "reason_health": "...",
+  "mission_alignment": "...",
+  "mission_score": 70
 }`;
 
   try {
@@ -182,6 +194,9 @@ ${safeLog.tomorrow_plan || "（なし）"}
       await supabase.from("day_logs").insert({ date, user_id: user.id, ...updateData });
     }
 
+    const missionAlignment = mission ? (result.mission_alignment || "") : "";
+    const missionScore = mission ? Math.max(0, Math.min(100, Math.round(result.mission_score || 0))) : 0;
+
     return NextResponse.json({
       diary: result.diary,
       advice: result.advice,
@@ -194,6 +209,9 @@ ${safeLog.tomorrow_plan || "（なし）"}
         work: result.reason_work,
         health: result.reason_health,
       },
+      mission,
+      mission_alignment: missionAlignment,
+      mission_score: missionScore,
     });
   } catch (e) {
     console.error("Score API error:", e);

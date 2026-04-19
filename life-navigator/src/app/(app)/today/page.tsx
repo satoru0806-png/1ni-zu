@@ -60,6 +60,9 @@ export default function TodayPage() {
   const [usageCount, setUsageCount] = useState(0);
   const [usageLimit, setUsageLimit] = useState(3);
   const [aiReasons, setAiReasons] = useState<{ rel: string; money: string; work: string; health: string } | null>(null);
+  const [mission, setMission] = useState<string>("");
+  const [missionAlignment, setMissionAlignment] = useState<string>("");
+  const [missionScore, setMissionScore] = useState<number>(0);
 
   const runAiDiagnosis = async () => {
     setDiagnosing(true);
@@ -76,6 +79,8 @@ export default function TodayPage() {
       setAiAdvice(data.advice);
       setAiInsight(data.self_insight || "");
       setAiReasons(data.reasons);
+      setMissionAlignment(data.mission_alignment || "");
+      setMissionScore(data.mission_score || 0);
       if (data.isPro !== undefined) setIsPro(data.isPro);
       setUsageCount((prev) => prev + 1);
     } catch (e) {
@@ -126,6 +131,11 @@ export default function TodayPage() {
       setIsPro(data.isPro || false);
       setUsageCount(data.usageThisMonth || 0);
       setUsageLimit(data.limit === -1 ? -1 : data.limit || 3);
+    }).catch(() => {});
+
+    // ミッション取得
+    fetch("/api/user/mission").then((r) => r.json()).then((d) => {
+      if (typeof d.mission === "string") setMission(d.mission);
     }).catch(() => {});
 
     // 昨日のスコア（トレンド比較用）
@@ -202,6 +212,19 @@ export default function TodayPage() {
 
   return (
     <div className="space-y-6">
+      {/* 人生ミッション常時表示 - 決まっていれば最上部に */}
+      {mission && (
+        <section className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 shadow-sm">
+          <div className="flex items-start gap-2">
+            <span className="text-amber-600 text-lg leading-none mt-0.5">🌟</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-amber-700 mb-0.5">MY MISSION</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{mission}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* バランスカード（4領域スコア可視化 - C+D統合） */}
       <section className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
@@ -269,6 +292,19 @@ export default function TodayPage() {
         )}
 
         {/* AI日記＋アドバイス */}
+        {missionAlignment && (
+          <div className="mt-3 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-3 border border-amber-200">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-bold text-amber-700">🌟 ミッション合致度</p>
+              <span className="text-sm font-bold text-amber-700">{missionScore}%</span>
+            </div>
+            <div className="w-full bg-amber-100 rounded-full h-1.5 mb-2 overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-400 to-orange-500 h-full rounded-full transition-all" style={{ width: `${missionScore}%` }} />
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">{missionAlignment}</p>
+          </div>
+        )}
+
         {(aiDiary || aiAdvice || aiInsight) && (
           <div className="mt-3 bg-white rounded-xl p-3 border border-purple-200 space-y-2">
             {aiDiary && (

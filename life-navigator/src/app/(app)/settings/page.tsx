@@ -7,6 +7,9 @@ export default function SettingsPage() {
   const [noonHour, setNoonHour] = useState(12);
   const [nightHour, setNightHour] = useState(21);
   const [saved, setSaved] = useState(false);
+  const [mission, setMission] = useState("");
+  const [missionSaved, setMissionSaved] = useState(false);
+  const [missionSaving, setMissionSaving] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("yumenavi_settings");
@@ -19,6 +22,11 @@ export default function SettingsPage() {
         setNightHour(s.nightHour ?? 21);
       } catch {}
     }
+    // ミッションをサーバから取得
+    fetch("/api/user/mission")
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.mission === "string") setMission(d.mission); })
+      .catch(() => {});
   }, []);
 
   const save = () => {
@@ -28,11 +36,61 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const saveMission = async () => {
+    setMissionSaving(true);
+    try {
+      const res = await fetch("/api/user/mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mission }),
+      });
+      if (res.ok) {
+        setMissionSaved(true);
+        setTimeout(() => setMissionSaved(false), 2000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert("保存失敗: " + (err.error || "不明なエラー"));
+      }
+    } catch (e) {
+      alert("通信エラー: " + (e as Error).message);
+    } finally {
+      setMissionSaving(false);
+    }
+  };
+
   const hours = Array.from({ length: 24 }, (_, i) => i);
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">⚙️ 設定</h2>
+
+      {/* 人生ミッション */}
+      <section className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 shadow-sm border border-amber-200">
+        <h3 className="text-sm font-bold text-amber-700 mb-2">🌟 人生ミッション</h3>
+        <p className="text-xs text-gray-600 mb-3">
+          あなたの人生の軸となる言葉。毎日のMITと照らし合わせる基準になります。<br />
+          例: 「自分の悩みを、誰かの『ありがとう』に変える道具を、一生作り続ける。」
+        </p>
+        <textarea
+          value={mission}
+          onChange={(e) => setMission(e.target.value)}
+          placeholder="自分のミッションを一文で..."
+          maxLength={500}
+          rows={3}
+          className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400"
+        />
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-xs text-gray-400">{mission.length}/500</span>
+          <button
+            type="button"
+            onClick={saveMission}
+            disabled={missionSaving}
+            className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm disabled:opacity-50"
+          >
+            {missionSaving ? "保存中..." : missionSaved ? "✅ 保存しました" : "ミッションを保存"}
+          </button>
+        </div>
+      </section>
 
       {/* 一日の始まり */}
       <section className="bg-white rounded-xl p-4 shadow-sm">
