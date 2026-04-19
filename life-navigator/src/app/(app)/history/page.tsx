@@ -73,7 +73,21 @@ function HistoryContent() {
   const [history, setHistory] = useState<DayLog[]>([]);
   const [selected, setSelected] = useState<DayLog | null>(null);
   const [month, setMonth] = useState(getCurrentMonth());
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "mission">("week");
+  // ミッション週報
+  type WeeklyReport = {
+    hasMission: boolean;
+    mission?: string;
+    periodStart?: string;
+    periodEnd?: string;
+    logCount?: number;
+    score?: number;
+    top3?: { date: string; action: string; reason: string }[];
+    observation?: string;
+  };
+  const [weekly, setWeekly] = useState<WeeklyReport | null>(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [weeklyError, setWeeklyError] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [edit, setEdit] = useState<DayLog | null>(null);
@@ -363,10 +377,131 @@ function HistoryContent() {
         >
           月別
         </button>
+        <button
+          onClick={() => setViewMode("mission")}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium ${viewMode === "mission" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white" : "bg-gray-100 text-gray-600"}`}
+        >
+          🌟 ミッション
+        </button>
       </div>
 
-      {/* サマリー */}
-      {history.length > 0 && (() => {
+      {/* ミッション週報 */}
+      {viewMode === "mission" && (
+        <section className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+          {!weekly && !weeklyLoading && (
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-600 mb-4">
+                過去7日間の行動を、あなたの人生ミッションの視点で振り返ります。
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  setWeeklyLoading(true);
+                  setWeeklyError("");
+                  try {
+                    const res = await fetch("/api/mission/weekly", { cache: "no-store" });
+                    const json = await res.json();
+                    if (!res.ok) {
+                      setWeeklyError(json.error || "生成失敗");
+                      return;
+                    }
+                    setWeekly(json);
+                  } catch (e) {
+                    setWeeklyError("通信エラー: " + (e as Error).message);
+                  } finally {
+                    setWeeklyLoading(false);
+                  }
+                }}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-6 py-3 rounded-xl shadow-sm"
+              >
+                🤖 週報を生成
+              </button>
+              {weeklyError && <p className="text-xs text-red-500 mt-3">{weeklyError}</p>}
+            </div>
+          )}
+
+          {weeklyLoading && (
+            <div className="text-center py-8">
+              <p className="text-sm text-amber-700 font-bold">🤖 AIが今週を振り返っています...</p>
+            </div>
+          )}
+
+          {weekly && !weekly.hasMission && (
+            <div className="text-center py-6">
+              <p className="text-sm text-gray-700 mb-4">ミッションが未設定です。</p>
+              <a href="/mission/create" className="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold px-5 py-2 rounded-lg shadow-sm">
+                ✨ ミッションを見つける
+              </a>
+            </div>
+          )}
+
+          {weekly && weekly.hasMission && (
+            <div className="space-y-4">
+              {/* ミッション常時表示 */}
+              <div className="bg-white rounded-xl p-3 border border-amber-200">
+                <p className="text-[10px] font-bold text-amber-700 mb-1">MY MISSION</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{weekly.mission}</p>
+              </div>
+
+              {/* 週平均合致度 */}
+              <div className="bg-white rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-amber-700">今週のミッション合致度</h3>
+                  <span className="text-2xl font-bold text-amber-700">{weekly.score}%</span>
+                </div>
+                <div className="w-full bg-amber-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all"
+                    style={{ width: `${weekly.score}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {weekly.periodStart} 〜 {weekly.periodEnd} の{weekly.logCount}日分の記録より
+                </p>
+              </div>
+
+              {/* TOP3 */}
+              {weekly.top3 && weekly.top3.length > 0 && (
+                <div className="bg-white rounded-xl p-4 border border-amber-200">
+                  <h3 className="text-sm font-bold text-amber-700 mb-3">🏆 ミッション貢献 TOP {weekly.top3.length}</h3>
+                  <div className="space-y-3">
+                    {weekly.top3.map((item, i) => (
+                      <div key={i} className="flex gap-3">
+                        <span className="text-amber-500 font-bold">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-400 mb-0.5">{item.date}</p>
+                          <p className="text-sm text-gray-800 font-medium mb-0.5">{item.action}</p>
+                          <p className="text-xs text-amber-600">✨ {item.reason}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* AI観察 */}
+              {weekly.observation && (
+                <div className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-xl p-4 border border-amber-300">
+                  <p className="text-xs font-bold text-amber-800 mb-2">💡 AIからの観察</p>
+                  <p className="text-sm text-gray-700 leading-relaxed">{weekly.observation}</p>
+                </div>
+              )}
+
+              {/* 再生成 */}
+              <button
+                type="button"
+                onClick={() => { setWeekly(null); setWeeklyError(""); }}
+                className="w-full text-xs text-amber-700 underline py-2"
+              >
+                🔄 もう一度生成する
+              </button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* サマリー（ミッションタブでは非表示） */}
+      {viewMode !== "mission" && history.length > 0 && (() => {
         const active = history.filter((d) => !("empty" in d && d.empty));
         const totalDays = history.length;
         const recordedDays = active.length;
@@ -424,8 +559,8 @@ function HistoryContent() {
         </div>
       )}
 
-      {/* 履歴リスト */}
-      {history.length === 0 ? (
+      {/* 履歴リスト（ミッションタブでは非表示） */}
+      {viewMode !== "mission" && (history.length === 0 ? (
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
           <p className="text-gray-400">記録がありません</p>
         </div>
@@ -455,7 +590,7 @@ function HistoryContent() {
             </div>
           );
         })
-      )}
+      ))}
     </div>
   );
 }
