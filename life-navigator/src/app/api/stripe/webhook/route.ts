@@ -26,15 +26,30 @@ export async function POST(req: NextRequest) {
       const session = event.data.object;
       const userId = session.metadata?.supabase_user_id;
       if (userId) {
-        await admin.from("profiles").upsert(
-          {
+        // 既存プロファイル確認
+        const { data: existing } = await admin
+          .from("profiles")
+          .select("user_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (existing) {
+          await admin
+            .from("profiles")
+            .update({
+              plan: "pro",
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: session.subscription as string,
+            })
+            .eq("user_id", userId);
+        } else {
+          await admin.from("profiles").insert({
             user_id: userId,
             plan: "pro",
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
-          },
-          { onConflict: "user_id" }
-        );
+          });
+        }
       }
       break;
     }

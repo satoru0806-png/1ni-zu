@@ -37,18 +37,30 @@ export async function POST() {
         metadata: { supabase_user_id: user.id },
       });
       customerId = customer.id;
-      // user_id を conflict target に指定して既存行を更新 or 新規作成
-      const { error: upsertErr } = await admin
-        .from("profiles")
-        .upsert(
-          { user_id: user.id, stripe_customer_id: customerId },
-          { onConflict: "user_id" }
-        );
-      if (upsertErr) {
-        return NextResponse.json(
-          { error: `Profile upsert failed: ${upsertErr.message}` },
-          { status: 500 }
-        );
+
+      if (profile) {
+        // 既存プロファイルあり → UPDATE
+        const { error: updateErr } = await admin
+          .from("profiles")
+          .update({ stripe_customer_id: customerId })
+          .eq("user_id", user.id);
+        if (updateErr) {
+          return NextResponse.json(
+            { error: `Profile update failed: ${updateErr.message}` },
+            { status: 500 }
+          );
+        }
+      } else {
+        // プロファイルなし → INSERT
+        const { error: insertErr } = await admin
+          .from("profiles")
+          .insert({ user_id: user.id, stripe_customer_id: customerId });
+        if (insertErr) {
+          return NextResponse.json(
+            { error: `Profile insert failed: ${insertErr.message}` },
+            { status: 500 }
+          );
+        }
       }
     }
 
