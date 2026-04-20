@@ -64,6 +64,8 @@ export default function TodayPage() {
   const [mission, setMission] = useState<string>("");
   const [missionAlignment, setMissionAlignment] = useState<string>("");
   const [missionScore, setMissionScore] = useState<number>(0);
+  type Goal = { id: string; title: string; deadline: string | null; progress: number; icon: string };
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   const runAiDiagnosis = async () => {
     setDiagnosing(true);
@@ -137,6 +139,11 @@ export default function TodayPage() {
     // ミッション取得
     fetch("/api/user/mission").then((r) => r.json()).then((d) => {
       if (typeof d.mission === "string") setMission(d.mission);
+    }).catch(() => {});
+
+    // アクティブゴール取得
+    fetch("/api/goals").then((r) => r.json()).then((d) => {
+      if (Array.isArray(d.goals)) setGoals(d.goals);
     }).catch(() => {});
 
     // 昨日のスコア（トレンド比較用）
@@ -238,6 +245,42 @@ export default function TodayPage() {
             </div>
             <span className="text-amber-600 text-lg">→</span>
           </div>
+        </Link>
+      )}
+
+      {/* アクティブゴール（最大3つ表示） */}
+      {goals.length > 0 && (
+        <Link href="/goals" className="block">
+          <section className="bg-white border border-amber-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-amber-700">🎯 追いかけているゴール</h3>
+              <span className="text-[10px] text-gray-400">タップで詳細 →</span>
+            </div>
+            <div className="space-y-1.5">
+              {goals.slice(0, 3).map((g) => {
+                const days = g.deadline
+                  ? Math.ceil((new Date(g.deadline + "T00:00:00").getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)
+                  : null;
+                return (
+                  <div key={g.id} className="flex items-center gap-2">
+                    <span className="text-sm">{g.icon || "🎯"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-800 truncate">{g.title}</p>
+                    </div>
+                    {days != null && (
+                      <span className={`text-[10px] font-bold whitespace-nowrap ${days < 0 ? "text-red-500" : days <= 7 ? "text-orange-500" : "text-gray-500"}`}>
+                        {days < 0 ? `${-days}日超過` : days === 0 ? "今日" : `${days}日`}
+                      </span>
+                    )}
+                    <span className="text-[10px] font-bold text-amber-700 w-8 text-right">{g.progress}%</span>
+                  </div>
+                );
+              })}
+              {goals.length > 3 && (
+                <p className="text-[10px] text-center text-gray-400 pt-1">他 {goals.length - 3} 個</p>
+              )}
+            </div>
+          </section>
         </Link>
       )}
 

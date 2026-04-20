@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 const tabs = [
   { href: "/dashboard", label: "ホーム", icon: "🏠" },
   { href: "/today", label: "今日", icon: "📝" },
+  { href: "/goals", label: "ゴール", icon: "🎯" },
   { href: "/review", label: "振り返り", icon: "🌙" },
   { href: "/history", label: "履歴", icon: "📊" },
   { href: "/memos", label: "メモ", icon: "📋" },
