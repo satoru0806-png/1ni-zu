@@ -181,7 +181,7 @@ export default function GoalsPage() {
       <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3">
         <p className="text-xs text-gray-700 leading-relaxed">
           ミッションと毎日のMITを繋ぐ「中間目標」です。<br />
-          <strong>具体的・期限付き・3〜5個まで</strong>（神田昌典メソッド）。達成したい未来を書きましょう。
+          <strong>具体的・期限付き・3〜5個まで</strong>。達成したい未来を書きましょう。
         </p>
       </div>
 
