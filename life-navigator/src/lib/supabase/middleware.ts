@@ -40,8 +40,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/icons") ||
     request.nextUrl.pathname === "/manifest.json" ||
     request.nextUrl.pathname === "/sw.js";
+  // 公開ページ: ルート(LP)・法的ページは未ログインでも閲覧可
+  const isPublicPage =
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/legal");
 
-  if (!user && !isAuthPage && !isApiRoute && !isPublicAsset) {
+  if (!user && !isAuthPage && !isApiRoute && !isPublicAsset && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
