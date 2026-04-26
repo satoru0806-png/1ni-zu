@@ -213,6 +213,8 @@ export function useSpeechRecognition({
   );
 
   const start = useCallback(async () => {
+    // 既に録音中なら何もしない (push-to-talk の keydown 連発吸収)
+    if (recorderRef.current) return;
     const stream = await ensureStream();
     if (!stream) return;
 
@@ -289,10 +291,18 @@ export function useSpeechRecognition({
     api.onToggleRecording(() => {
       toggle();
     });
+    api.onStartRecording(() => {
+      // 押している間だけ録音 (push-to-talk) の開始通知。重複呼びは start() 側で吸収。
+      start();
+    });
+    api.onStopRecording(() => {
+      // push-to-talk の終了通知。録音中でなければ no-op。
+      stop();
+    });
     api.onCancelRecording(() => {
       cancel();
     });
-  }, [api, toggle, cancel]);
+  }, [api, toggle, start, stop, cancel]);
 
   return { listening, processing, interim, toggle, start, stop };
 }

@@ -2,6 +2,8 @@ import type { AppSettings, AppVoiceContext, HistoryEntry, TranscribeResult, Voic
 
 interface SpeakNoteAPI {
   onToggleRecording: (callback: () => void) => void;
+  onStartRecording: (callback: () => void) => void;
+  onStopRecording: (callback: () => void) => void;
   onWindowShown: (callback: () => void) => void;
   onCancelRecording: (callback: () => void) => void;
   processVoice: (rawText: string, context: string) => Promise<VoiceResult>;

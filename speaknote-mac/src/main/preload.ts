@@ -6,6 +6,14 @@ contextBridge.exposeInMainWorld("speaknoteAPI", {
     ipcRenderer.removeAllListeners("toggle-recording");
     ipcRenderer.on("toggle-recording", () => callback());
   },
+  onStartRecording: (callback: () => void) => {
+    ipcRenderer.removeAllListeners("start-recording");
+    ipcRenderer.on("start-recording", () => callback());
+  },
+  onStopRecording: (callback: () => void) => {
+    ipcRenderer.removeAllListeners("stop-recording");
+    ipcRenderer.on("stop-recording", () => callback());
+  },
   onWindowShown: (callback: () => void) => {
     ipcRenderer.removeAllListeners("window-shown");
     ipcRenderer.on("window-shown", () => callback());

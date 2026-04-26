@@ -191,6 +191,20 @@ function triggerRecording(): void {
   mainWindow.webContents.send("toggle-recording");
 }
 
+function requestStartRecording(): void {
+  if (!mainWindow) return;
+  captureFrontmostApp();
+  if (!mainWindow.isVisible()) {
+    toggleWindow();
+  }
+  mainWindow.webContents.send("start-recording");
+}
+
+function requestStopRecording(): void {
+  if (!mainWindow) return;
+  mainWindow.webContents.send("stop-recording");
+}
+
 function createTray(): void {
   const icon = nativeImage.createFromDataURL(
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAAhElEQVQ4T2NkoBNgpJO5DKMGk+xpxqGfFP4zMHxhYGD4z8DI+B8oxsjAyMDA8J+R8T8jE+N/BoYvDIz/vzAx/v/CyMhwhYGB4QIeN1xgZGS8QMhgRgYGCwYGBgsGBob/hNxwgZGR0YJQUiDGYEIGE0oKxBhMahokJOHRpEByUhgdDQAAFg8mBc/bS3IAAAAAElFTkSuQmCC"
@@ -199,7 +213,9 @@ function createTray(): void {
 
   tray = new Tray(icon);
   tray.setToolTip(
-    IS_MAC ? "SpeakNote - 右Command長押しで録音" : "SpeakNote - 右Ctrlで録音"
+    IS_MAC
+      ? "SpeakNote - 右Command を押している間 録音"
+      : "SpeakNote - 右Ctrl を押している間 録音"
   );
 
   tray.on("click", () => {
@@ -214,7 +230,9 @@ function createTray(): void {
       },
       { type: "separator" },
       {
-        label: IS_MAC ? "右Command長押しで録音開始" : "右Ctrlで録音開始",
+        label: IS_MAC
+          ? "右Command を押している間 録音"
+          : "右Ctrl を押している間 録音",
         enabled: false,
       },
       { type: "separator" },
@@ -231,20 +249,22 @@ let recordingState: "idle" | "recording" | "processing" = "idle";
 
 function setupKeyboardHook(): void {
   // 録音トリガキー: macOS は右Cmd、Windows は右Ctrl (右Winは Start メニュー競合のため不可)
+  // 押している間だけ録音 (push-to-talk)。keydown で開始、keyup で停止。
   const TRIGGER_KEY = IS_MAC ? UiohookKey.MetaRight : UiohookKey.CtrlRight;
   const ESC = UiohookKey.Escape;
   let triggerDown = false;
-  let triggerUsedAsCombo = false;
 
   debugLog(`TRIGGER keycode: ${TRIGGER_KEY}`);
 
   uIOhook.on("keydown", (e) => {
     debugLog(`keydown: ${e.keycode}`);
     if (e.keycode === TRIGGER_KEY) {
-      triggerDown = true;
-      triggerUsedAsCombo = false;
-    } else if (triggerDown) {
-      triggerUsedAsCombo = true;
+      // OS のキーリピートで keydown が連続発火しても 1 回だけ start を送る
+      if (!triggerDown) {
+        triggerDown = true;
+        debugLog("requestStartRecording!");
+        requestStartRecording();
+      }
     }
     if (e.keycode === ESC && recordingState === "recording") {
       debugLog("cancel-recording!");
@@ -254,13 +274,10 @@ function setupKeyboardHook(): void {
 
   uIOhook.on("keyup", (e) => {
     debugLog(`keyup: ${e.keycode}`);
-    if (e.keycode === TRIGGER_KEY) {
-      if (triggerDown && !triggerUsedAsCombo) {
-        debugLog("triggerRecording!");
-        triggerRecording();
-      }
+    if (e.keycode === TRIGGER_KEY && triggerDown) {
       triggerDown = false;
-      triggerUsedAsCombo = false;
+      debugLog("requestStopRecording!");
+      requestStopRecording();
     }
   });
 
@@ -283,6 +300,10 @@ function setupIPC(): void {
     "process-voice",
     async (_event, rawText: string, context: AppVoiceContext) => {
       const settings = getSettings();
+      // AI 整形 OFF のときは raw をそのまま返す (Web/Windows 版と同じ挙動)
+      if (settings.aiEnabled === false) {
+        return { cleaned: rawText, raw: rawText };
+      }
       return processVoice(
         rawText,
         context,
