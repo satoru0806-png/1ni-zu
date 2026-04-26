@@ -40,6 +40,16 @@ export type TranscribeResult = {
   error?: string;
 };
 
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatResult = {
+  reply: string;
+  error?: string;
+};
+
 // Web Speech API types for Electron/Chromium
 interface SpeechRecognitionAlternative {
   transcript: string;

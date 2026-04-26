@@ -4,12 +4,13 @@ import { ResultArea } from "./components/ResultArea";
 import { Settings } from "./components/Settings";
 import { HistoryList } from "./components/HistoryList";
 import { ModeSelector } from "./components/ModeSelector";
+import { ChatView } from "./components/ChatView";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useVAD } from "./hooks/useVAD";
 import { useElectronAPI } from "./hooks/useElectronAPI";
-import type { AppSettings, AppVoiceContext, VoiceResult } from "../shared/types";
+import type { AppSettings, AppVoiceContext, ChatMessage, VoiceResult } from "../shared/types";
 
-type View = "main" | "settings" | "history";
+type View = "main" | "settings" | "history" | "chat";
 
 function TogglePill({
   label,
@@ -69,6 +70,8 @@ export function App() {
   const [vadSilenceMs, setVadSilenceMs] = useState(1500);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [autoLearnEnabled, setAutoLearnEnabled] = useState(true);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatStatus, setChatStatus] = useState("マイクをタップして話しかけてください");
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,12 +99,43 @@ export function App() {
     api.saveSettings({ autoLearnEnabled: next });
   }, [autoLearnEnabled, api]);
 
-  const handleResult = useCallback((r: VoiceResult) => {
-    setResult(r);
-    if (r.error) {
-      setToast(r.error);
-    }
-  }, []);
+  const sendToChat = useCallback(
+    async (rawText: string) => {
+      const trimmed = rawText.trim();
+      if (!trimmed) return;
+      const userMsg: ChatMessage = { role: "user", content: trimmed };
+      const historySnapshot = chatMessages;
+      setChatMessages((prev) => [...prev, userMsg]);
+      setChatStatus("応答を待っています…");
+      const result = await api.sendChatMessage(trimmed, historySnapshot);
+      if (result.error) {
+        setChatStatus(`失敗: ${result.error}`);
+        return;
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: result.reply },
+      ]);
+      setChatStatus("マイクをタップして話しかけてください");
+    },
+    [api, chatMessages]
+  );
+
+  const handleResult = useCallback(
+    (r: VoiceResult) => {
+      // 会話モードのときは AI 整形済みテキストをチャットに送る (raw fallback)
+      if (view === "chat") {
+        const text = r.cleaned || r.raw || "";
+        if (text) sendToChat(text);
+        return;
+      }
+      setResult(r);
+      if (r.error) {
+        setToast(r.error);
+      }
+    },
+    [view, sendToChat]
+  );
 
   const handleError = useCallback((message: string) => {
     setToast(message);
@@ -151,6 +185,23 @@ export function App() {
     );
   }
 
+  if (view === "chat") {
+    return (
+      <ChatView
+        messages={chatMessages}
+        status={chatStatus}
+        listening={listening}
+        processing={processing}
+        onMicClick={toggle}
+        onClear={() => {
+          setChatMessages([]);
+          setChatStatus("履歴をクリアしました");
+        }}
+        onClose={() => setView("main")}
+      />
+    );
+  }
+
   return (
     <div className="h-screen bg-white flex flex-col">
       {/* Drag region + toolbar */}
@@ -191,10 +242,11 @@ export function App() {
         <ModeSelector value={mode} onChange={setMode} />
       </div>
 
-      {/* Quick toggles (AI整形 / 自動学習) */}
+      {/* Quick toggles (AI整形 / 自動学習 / 会話) */}
       <div className="px-4 pb-2 flex-shrink-0 flex items-center gap-2">
         <TogglePill label="AI整形" on={aiEnabled} onClick={toggleAi} />
         <TogglePill label="自動学習" on={autoLearnEnabled} onClick={toggleAutoLearn} />
+        <TogglePill label="会話" on={false} onClick={() => setView("chat")} />
       </div>
 
       {/* OpenAI key warning (required) */}

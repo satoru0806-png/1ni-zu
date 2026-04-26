@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld("speaknoteAPI", {
   // Renderer -> Main calls
   processVoice: (rawText: string, context: string) =>
     ipcRenderer.invoke("process-voice", rawText, context),
+  sendChatMessage: (message: string, history: unknown[]) =>
+    ipcRenderer.invoke("send-chat-message", message, history),
   transcribeAudio: (audioBuffer: ArrayBuffer, mimeType: string) =>
     ipcRenderer.invoke("transcribe-audio", audioBuffer, mimeType),
   copyToClipboard: (text: string) =>

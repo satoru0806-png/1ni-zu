@@ -13,6 +13,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { processVoice } from "./anthropic";
+import { sendChatMessage } from "./anthropic-chat";
 import { transcribeAudio } from "./whisper";
 import {
   getSettings,
@@ -21,7 +22,7 @@ import {
   addHistory,
   clearHistory,
 } from "./store";
-import type { AppVoiceContext, HistoryEntry } from "../shared/types";
+import type { AppVoiceContext, ChatMessage, HistoryEntry } from "../shared/types";
 
 import { uIOhook, UiohookKey } from "uiohook-napi";
 import fs from "node:fs";
@@ -310,6 +311,14 @@ function setupIPC(): void {
         settings.apiKey,
         settings.dictionary ?? []
       );
+    }
+  );
+
+  ipcMain.handle(
+    "send-chat-message",
+    async (_event, message: string, history: ChatMessage[]) => {
+      const settings = getSettings();
+      return sendChatMessage(message, history ?? [], settings.apiKey);
     }
   );
 
