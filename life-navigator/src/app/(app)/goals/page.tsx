@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 
 type Goal = {
@@ -50,7 +50,11 @@ export default function GoalsPage() {
   const [form, setForm] = useState<GoalForm>({ title: "", deadline: "", mission_connection: "", icon: "🎯" });
   const [showArchived, setShowArchived] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const inFlightController = useRef<AbortController | null>(null);
+  const formInitialLoad = useRef(true);
 
   const loadGoals = async () => {
     setLoading(true);
@@ -75,6 +79,9 @@ export default function GoalsPage() {
     setForm({ title: "", deadline: "", mission_connection: "", icon: "🎯" });
     setError("");
     setShowForm(true);
+    setAutoSaveStatus("idle");
+    formInitialLoad.current = true;
+    setTimeout(() => { formInitialLoad.current = false; }, 800);
   };
 
   const openEdit = (g: Goal) => {
@@ -87,12 +94,20 @@ export default function GoalsPage() {
     });
     setError("");
     setShowForm(true);
+    setAutoSaveStatus("idle");
+    formInitialLoad.current = true;
+    setTimeout(() => { formInitialLoad.current = false; }, 800);
   };
 
   const close = () => {
+    // 編集中で未保存があればフラッシュ
+    if (editing && (autoSaveStatus === "pending" || autoSaveStatus === "saving")) {
+      flushAutoSave();
+    }
     setShowForm(false);
     setEditing(null);
     setError("");
+    setAutoSaveStatus("idle");
   };
 
   const save = async () => {
@@ -128,6 +143,73 @@ export default function GoalsPage() {
       setSaving(false);
     }
   };
+
+  // 既存ゴール編集時の自動保存（PATCH）
+  const persistGoalEdit = useCallback(async (currentForm: GoalForm, goalId: string): Promise<boolean> => {
+    if (!currentForm.title.trim()) return false; // タイトル空は保存しない
+    if (inFlightController.current) inFlightController.current.abort();
+    const controller = new AbortController();
+    inFlightController.current = controller;
+    setAutoSaveStatus("saving");
+    try {
+      const res = await fetch(`/api/goals/${goalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: currentForm.title.trim(),
+          deadline: currentForm.deadline || null,
+          mission_connection: currentForm.mission_connection.trim() || null,
+          icon: currentForm.icon,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("保存失敗");
+      setAutoSaveStatus("saved");
+      setTimeout(() => setAutoSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      return true;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return false;
+      setAutoSaveStatus("error");
+      return false;
+    }
+  }, []);
+
+  const flushAutoSave = useCallback(() => {
+    if (autoSaveTimer.current && editing && form.title.trim()) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = undefined;
+      persistGoalEdit(form, editing.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, form, persistGoalEdit]);
+
+  // フォーム変更時の自動保存（編集中のみ、1.5秒デバウンス）
+  useEffect(() => {
+    if (!showForm || !editing || formInitialLoad.current) return;
+    if (!form.title.trim()) return;
+    setAutoSaveStatus("pending");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      persistGoalEdit(form, editing.id);
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [form, showForm, editing, persistGoalEdit]);
+
+  // 離脱時保護
+  useEffect(() => {
+    if (!showForm || !editing) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (autoSaveStatus === "pending" || autoSaveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+        flushAutoSave();
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [showForm, editing, autoSaveStatus, flushAutoSave]);
 
   const updateProgress = async (goal: Goal, progress: number) => {
     const prev = goals;
@@ -310,7 +392,24 @@ export default function GoalsPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={close}>
           <div className="bg-white rounded-2xl p-5 max-w-md w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold mb-4">{editing ? "ゴールを編集" : "新しいゴール"}</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">{editing ? "ゴールを編集" : "新しいゴール"}</h3>
+              {editing && (
+                <span className={`text-xs ${
+                  autoSaveStatus === "saved" ? "text-green-600"
+                  : autoSaveStatus === "error" ? "text-red-500"
+                  : autoSaveStatus === "saving" ? "text-blue-600"
+                  : autoSaveStatus === "pending" ? "text-gray-400"
+                  : "text-gray-300"
+                }`}>
+                  {autoSaveStatus === "pending" ? "入力中…"
+                  : autoSaveStatus === "saving" ? "💾 保存中…"
+                  : autoSaveStatus === "saved" ? "✓ 保存済"
+                  : autoSaveStatus === "error" ? "⚠ 保存失敗"
+                  : "自動保存"}
+                </span>
+              )}
+            </div>
 
             {/* アイコン選択 */}
             <div className="mb-4">

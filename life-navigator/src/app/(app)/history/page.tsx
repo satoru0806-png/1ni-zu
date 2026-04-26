@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type DayLog = {
@@ -90,7 +90,12 @@ function HistoryContent() {
   const [weeklyError, setWeeklyError] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
   const [edit, setEdit] = useState<DayLog | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const editInitialLoad = useRef(true);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const inFlightController = useRef<AbortController | null>(null);
   const searchParams = useSearchParams();
 
   const navigateDay = async (diff: number) => {
@@ -112,32 +117,67 @@ function HistoryContent() {
     if (!selected) return;
     setEdit({ ...selected });
     setEditing(true);
+    editInitialLoad.current = true;
+    setAutoSaveStatus("idle");
+    // 初回ロード後に自動保存を有効化（フォーム展開直後の意図しない保存を防止）
+    setTimeout(() => { editInitialLoad.current = false; }, 800);
   };
 
   const cancelEdit = () => {
+    // 編集破棄前に未保存があれば強制保存
+    if (autoSaveStatus === "pending" || autoSaveStatus === "saving") {
+      flushAutoSave();
+    }
     setEditing(false);
     setEdit(null);
+    setAutoSaveStatus("idle");
   };
 
-  const saveEdit = async () => {
-    if (!edit) return;
-    setSaving(true);
+  // 即時保存（編集状態を直接受け取る）— レース対策のため最新editを引数化
+  const persistEdit = useCallback(async (current: DayLog): Promise<boolean> => {
+    // 既存の保存リクエストをキャンセル
+    if (inFlightController.current) inFlightController.current.abort();
+    const controller = new AbortController();
+    inFlightController.current = controller;
+    setAutoSaveStatus("saving");
     try {
       const res = await fetch("/api/daylog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          date: edit.date,
-          mit1: edit.mit1 ?? "",
-          mit2: edit.mit2 ?? "",
-          mit3: edit.mit3 ?? "",
-          doneNote: edit.done_note ?? "",
-          gratitudeNote: edit.gratitude_note ?? "",
-          tomorrowPlan: edit.tomorrow_plan ?? "",
-          memoRaw: edit.memo_raw ?? "",
+          date: current.date,
+          mit1: current.mit1 ?? "",
+          mit2: current.mit2 ?? "",
+          mit3: current.mit3 ?? "",
+          doneNote: current.done_note ?? "",
+          gratitudeNote: current.gratitude_note ?? "",
+          tomorrowPlan: current.tomorrow_plan ?? "",
+          memoRaw: current.memo_raw ?? "",
         }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error("保存失敗");
+      setAutoSaveStatus("saved");
+      // 数秒後に saved → idle に戻す
+      setTimeout(() => setAutoSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+      return true;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return false;
+      setAutoSaveStatus("error");
+      return false;
+    }
+  }, []);
+
+  // 確定保存（保存ボタン押下用）
+  const saveEdit = async () => {
+    if (!edit) return;
+    setSaving(true);
+    try {
+      const ok = await persistEdit(edit);
+      if (!ok) {
+        alert("保存に失敗しました。ネットワークを確認してください。");
+        return;
+      }
       // 保存後に最新データをサーバーから再取得（整合性確保）
       const freshRes = await fetch(`/api/daylog?date=${edit.date}`, { cache: "no-store" });
       const fresh = await freshRes.json();
@@ -146,10 +186,82 @@ function HistoryContent() {
       setEdit(null);
       // 履歴リストも再取得
       await loadHistory();
-    } catch (e) {
-      alert("保存に失敗しました: " + (e as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 未保存タイマー強制実行
+  const flushAutoSave = useCallback(() => {
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = undefined;
+      if (edit) persistEdit(edit);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edit, persistEdit]);
+
+  // edit 変更時の自動保存（1.5秒デバウンス）
+  useEffect(() => {
+    if (!editing || !edit || editInitialLoad.current) return;
+    setAutoSaveStatus("pending");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { persistEdit(edit); }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [edit, editing, persistEdit]);
+
+  // ページ離脱時の警告 + 保留保存のフラッシュ
+  useEffect(() => {
+    if (!editing) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (autoSaveStatus === "pending" || autoSaveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+        flushAutoSave();
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      // アンマウント時にフラッシュ
+      if (autoSaveTimer.current && edit) {
+        clearTimeout(autoSaveTimer.current);
+        persistEdit(edit);
+      }
+    };
+  }, [editing, autoSaveStatus, edit, flushAutoSave, persistEdit]);
+
+  // 過去日の AI 診断を実行
+  const runAiDiagnosisForDate = async (date: string) => {
+    // 編集中なら先にフラッシュ保存
+    if (autoSaveTimer.current && edit) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = undefined;
+      await persistEdit(edit);
+    }
+    setDiagnosing(true);
+    try {
+      const res = await fetch("/api/score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "AI診断に失敗しました");
+        return;
+      }
+      // 診断結果を反映するため最新を再取得
+      const freshRes = await fetch(`/api/daylog?date=${date}`, { cache: "no-store" });
+      const fresh = await freshRes.json();
+      setSelected(fresh);
+      if (edit) setEdit(fresh);
+    } catch (e) {
+      alert("診断エラー: " + (e as Error).message);
+    } finally {
+      setDiagnosing(false);
     }
   };
 
@@ -195,18 +307,46 @@ function HistoryContent() {
     // 編集モード
     if (editing && edit) {
       const upd = (k: keyof DayLog, v: string) => setEdit({ ...edit, [k]: v });
+      const statusLabel =
+        autoSaveStatus === "pending" ? "入力中…"
+        : autoSaveStatus === "saving" ? "💾 保存中…"
+        : autoSaveStatus === "saved" ? "✓ 保存しました"
+        : autoSaveStatus === "error" ? "⚠ 保存失敗（再入力で再試行）"
+        : "";
+      const statusColor =
+        autoSaveStatus === "saved" ? "text-green-600"
+        : autoSaveStatus === "error" ? "text-red-500"
+        : autoSaveStatus === "saving" ? "text-blue-600"
+        : "text-gray-400";
       return (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <button onClick={cancelEdit} className="text-sm text-gray-500 font-medium">キャンセル</button>
-            <h2 className="text-lg font-bold">{formatDate(edit.date)} を編集</h2>
+          <div className="flex items-center justify-between gap-2">
+            <button onClick={cancelEdit} className="text-sm text-gray-500 font-medium whitespace-nowrap">完了</button>
+            <h2 className="text-base font-bold flex-1 text-center">{formatDate(edit.date)} を編集</h2>
             <button
               onClick={saveEdit}
               disabled={saving}
-              className="text-sm bg-blue-600 text-white font-bold px-4 py-1.5 rounded-lg disabled:opacity-50"
+              className="text-xs bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg disabled:opacity-50 whitespace-nowrap"
             >
               {saving ? "保存中..." : "保存"}
             </button>
+          </div>
+          {/* 自動保存ステータス */}
+          <div className={`text-xs text-center ${statusColor} h-4`}>
+            {statusLabel || "自動保存が有効です"}
+          </div>
+          {/* 過去日の AI 診断ボタン */}
+          <div>
+            <button
+              onClick={() => runAiDiagnosisForDate(edit.date)}
+              disabled={diagnosing}
+              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-2.5 rounded-xl shadow-sm disabled:opacity-50"
+            >
+              {diagnosing ? "🤔 診断中..." : "🤖 この日の AI 診断を実行"}
+            </button>
+            <p className="text-[10px] text-gray-500 text-center mt-1">
+              翌日以降に書き足した内容も含めて再診断できます
+            </p>
           </div>
 
           <section className="bg-white rounded-xl p-4 shadow-sm space-y-2">

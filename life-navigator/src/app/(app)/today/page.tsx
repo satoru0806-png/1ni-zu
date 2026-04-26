@@ -68,6 +68,12 @@ export default function TodayPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
 
   const runAiDiagnosis = async () => {
+    // 診断開始前に未保存の入力を強制保存（データ消失防止）
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = undefined;
+      try { await save(); } catch {}
+    }
     setDiagnosing(true);
     try {
       const res = await fetch("/api/score", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
@@ -162,30 +168,48 @@ export default function TodayPage() {
 
   const avgScore = Math.round((scores.rel + scores.money + scores.work + scores.health) / 4);
 
-  const save = useCallback(async () => {
-    await fetch("/api/daylog", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mit1: mits[0] || null,
-        mit2: mits[1] || null,
-        mit3: mits[2] || null,
-        doneNote: JSON.stringify(checks),
-        memoRaw: memo || null,
-      }),
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }, [mits, checks, memo]);
+  // 最新の入力値を ref に保持（再レンダリングに依存しない安定参照）
+  const latestState = useRef({ mits, checks, memo });
+  latestState.current = { mits, checks, memo };
 
-  // 自動保存（2秒デバウンス）
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
+
+  const save = useCallback(async () => {
+    const cur = latestState.current;
+    setAutoSaveStatus("saving");
+    try {
+      const res = await fetch("/api/daylog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mit1: cur.mits[0] || null,
+          mit2: cur.mits[1] || null,
+          mit3: cur.mits[2] || null,
+          doneNote: JSON.stringify(cur.checks),
+          memoRaw: cur.memo || null,
+        }),
+      });
+      if (!res.ok) throw new Error("保存失敗");
+      setAutoSaveStatus("saved");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => setAutoSaveStatus((s) => (s === "saved" ? "idle" : s)), 2000);
+    } catch {
+      setAutoSaveStatus("error");
+    }
+  }, []);
+
+  // 自動保存（2秒デバウンス）— 入力値の変化のみ依存にして再レンダリングでの再起動を回避
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isInitialLoad = useRef(true);
   useEffect(() => {
     if (isInitialLoad.current) return;
-    clearTimeout(autoSaveTimer.current);
+    setAutoSaveStatus("pending");
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => { save(); }, 2000);
-    return () => clearTimeout(autoSaveTimer.current);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
   }, [mits, memo, checks, save]);
 
   // 初回ロード完了後に自動保存を有効化
@@ -193,6 +217,32 @@ export default function TodayPage() {
     const timer = setTimeout(() => { isInitialLoad.current = false; }, 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // 離脱時保護：未保存の入力をフラッシュ（タブ閉じ・リロード時の警告 + 保存試行）
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (autoSaveStatus === "pending" || autoSaveStatus === "saving") {
+        e.preventDefault();
+        e.returnValue = "";
+        // sendBeacon で同期送信を試みる（タブ閉じでも可能性あり）
+        try {
+          const cur = latestState.current;
+          navigator.sendBeacon(
+            "/api/daylog",
+            new Blob([JSON.stringify({
+              mit1: cur.mits[0] || null,
+              mit2: cur.mits[1] || null,
+              mit3: cur.mits[2] || null,
+              doneNote: JSON.stringify(cur.checks),
+              memoRaw: cur.memo || null,
+            })], { type: "application/json" })
+          );
+        } catch {}
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [autoSaveStatus]);
 
   const updateMit = (idx: number, val: string) => {
     const next = [...mits];
