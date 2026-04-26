@@ -18,6 +18,8 @@ const store = new Store<StoreSchema>({
       dictionary: [],
       vadEnabled: false,
       vadSilenceMs: 1500,
+      aiEnabled: true,
+      autoLearnEnabled: true,
     },
     history: [],
   },

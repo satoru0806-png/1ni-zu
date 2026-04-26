@@ -11,6 +11,35 @@ import type { AppSettings, AppVoiceContext, VoiceResult } from "../shared/types"
 
 type View = "main" | "settings" | "history";
 
+function TogglePill({
+  label,
+  on,
+  onClick,
+}: {
+  label: string;
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 inline-flex items-center justify-between gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+        on
+          ? "bg-blue-50 border-blue-200 text-blue-700"
+          : "bg-gray-50 border-gray-200 text-gray-500"
+      }`}
+      aria-pressed={on}
+    >
+      <span>{label}</span>
+      <span
+        className={`inline-block h-2 w-2 rounded-full ${
+          on ? "bg-blue-500" : "bg-gray-300"
+        }`}
+      />
+    </button>
+  );
+}
+
 function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDismiss, 4000);
@@ -38,6 +67,8 @@ export function App() {
   const [hasOpenaiKey, setHasOpenaiKey] = useState(true);
   const [vadEnabled, setVadEnabled] = useState(false);
   const [vadSilenceMs, setVadSilenceMs] = useState(1500);
+  const [aiEnabled, setAiEnabled] = useState(true);
+  const [autoLearnEnabled, setAutoLearnEnabled] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,8 +79,22 @@ export function App() {
       setHasOpenaiKey(!!s.openaiApiKey);
       setVadEnabled(!!s.vadEnabled);
       setVadSilenceMs(s.vadSilenceMs ?? 1500);
+      setAiEnabled(s.aiEnabled !== false);
+      setAutoLearnEnabled(s.autoLearnEnabled !== false);
     });
   }, [api]);
+
+  const toggleAi = useCallback(() => {
+    const next = !aiEnabled;
+    setAiEnabled(next);
+    api.saveSettings({ aiEnabled: next });
+  }, [aiEnabled, api]);
+
+  const toggleAutoLearn = useCallback(() => {
+    const next = !autoLearnEnabled;
+    setAutoLearnEnabled(next);
+    api.saveSettings({ autoLearnEnabled: next });
+  }, [autoLearnEnabled, api]);
 
   const handleResult = useCallback((r: VoiceResult) => {
     setResult(r);
@@ -144,6 +189,12 @@ export function App() {
       {/* Mode selector */}
       <div className="px-4 pb-2 flex-shrink-0">
         <ModeSelector value={mode} onChange={setMode} />
+      </div>
+
+      {/* Quick toggles (AI整形 / 自動学習) */}
+      <div className="px-4 pb-2 flex-shrink-0 flex items-center gap-2">
+        <TogglePill label="AI整形" on={aiEnabled} onClick={toggleAi} />
+        <TogglePill label="自動学習" on={autoLearnEnabled} onClick={toggleAutoLearn} />
       </div>
 
       {/* OpenAI key warning (required) */}

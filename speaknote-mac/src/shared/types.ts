@@ -31,6 +31,8 @@ export type AppSettings = {
   dictionary: DictionaryEntry[];
   vadEnabled: boolean;
   vadSilenceMs: number;
+  aiEnabled: boolean;
+  autoLearnEnabled: boolean;
 };
 
 export type TranscribeResult = {
