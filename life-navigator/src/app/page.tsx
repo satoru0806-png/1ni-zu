@@ -42,10 +42,10 @@ export default async function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/login?mode=signup"
+              href="/trial"
               className="px-8 py-3 rounded-xl bg-amber-500 text-white font-semibold shadow-lg hover:bg-amber-600 transition"
             >
-              無料ではじめる
+              21日間 無料で試す
             </Link>
             <Link
               href="#pricing"
@@ -55,7 +55,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <p className="text-xs text-gray-500 mt-4">
-            メールアドレス 1 つで 30 秒登録 / クレジットカード不要
+            メールで <strong>21 日無料キー</strong>がすぐ届く / クレジットカード不要 / 自動課金なし
           </p>
         </div>
       </section>
@@ -137,10 +137,10 @@ export default async function HomePage() {
                 <li>✓ AI 整形 30 回 / 月</li>
               </ul>
               <Link
-                href="/login?mode=signup"
+                href="/trial"
                 className="block text-center px-6 py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition"
               >
-                無料ではじめる
+                21 日無料で試す
               </Link>
             </div>
             {/* Pro */}
@@ -163,10 +163,10 @@ export default async function HomePage() {
                 <li>✓ 全デバイス同期</li>
               </ul>
               <Link
-                href="/login?mode=signup"
+                href="/trial"
                 className="block text-center px-6 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition"
               >
-                Pro ではじめる
+                21 日無料ではじめる
               </Link>
             </div>
           </div>
@@ -186,10 +186,10 @@ export default async function HomePage() {
             登録は 30 秒。クレジットカードも不要です。
           </p>
           <Link
-            href="/login?mode=signup"
+            href="/trial"
             className="inline-block px-10 py-4 rounded-xl bg-amber-500 text-white font-semibold shadow-lg hover:bg-amber-600 transition"
           >
-            無料で夢ナビをはじめる
+            21 日無料で夢ナビをはじめる
           </Link>
         </div>
       </section>
