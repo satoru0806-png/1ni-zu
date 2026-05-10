@@ -9,3 +9,18 @@ db/*.db-*
 .vercel
 
 .claude/
+
+# 別リポジトリとして管理されているサブプロジェクトを除外
+speaknote/
+speaknote-android/
+youtube-transcript-tool/
+mentor-finder/
+kabeuchi/
+mamoru/
+research/
+.agent-trace/
+.agent_usage_state.json
+.workflow_state.json
+SESSION_HANDOFF.md
+life-navigator-research.md
+.mcp.json
