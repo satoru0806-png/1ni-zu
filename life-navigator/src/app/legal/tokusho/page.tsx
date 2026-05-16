@@ -22,7 +22,7 @@ export default function TokushoPage() {
             <th className="text-left py-3 pr-4 align-top whitespace-nowrap font-semibold">
               所在地
             </th>
-            <td className="py-3">福島県白河市立石105-1</td>
+            <td className="py-3">福島県白河市立石201-4</td>
           </tr>
           <tr className="border-b">
             <th className="text-left py-3 pr-4 align-top whitespace-nowrap font-semibold">

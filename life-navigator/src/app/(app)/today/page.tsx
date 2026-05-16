@@ -67,6 +67,26 @@ export default function TodayPage() {
   type Goal = { id: string; title: string; deadline: string | null; progress: number; icon: string };
   const [goals, setGoals] = useState<Goal[]>([]);
 
+  // 昨日の後追い入力用（入力忘れリカバリ）
+  const [yMits, setYMits] = useState<string[]>(["", "", ""]);
+  const [yChecks, setYChecks] = useState<boolean[]>([false, false, false]);
+  const [yLoaded, setYLoaded] = useState(false);
+  const [yExpanded, setYExpanded] = useState(false);
+  const [ySavedFlash, setYSavedFlash] = useState(false);
+  const yStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  })();
+  const yMmdd = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const w = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
+    return `${m}/${day}（${w}）`;
+  })();
+
   const runAiDiagnosis = async () => {
     // 診断開始前に未保存の入力を強制保存（データ消失防止）
     if (autoSaveTimer.current) {
@@ -152,18 +172,30 @@ export default function TodayPage() {
       if (Array.isArray(d.goals)) setGoals(d.goals);
     }).catch(() => {});
 
-    // 昨日のスコア（トレンド比較用）
+    // 昨日のスコア・MIT・チェック（トレンド比較 + 後追い入力用）
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toISOString().slice(0, 10);
-    fetch(`/api/daylog?date=${yStr}`).then((r) => r.json()).then((data: DayLog) => {
+    const yStrLocal = yesterday.toISOString().slice(0, 10);
+    fetch(`/api/daylog?date=${yStrLocal}`).then((r) => r.json()).then((data: DayLog) => {
       setPrevScores({
         rel: data.relationship_score ?? 50,
         money: data.money_score ?? 50,
         work: data.work_score ?? 50,
         health: data.health_score ?? 50,
       });
-    }).catch(() => {});
+      // 昨日のMITを読み込み（後追い入力セクションで使う）
+      const mits = [data.mit1 || "", data.mit2 || "", data.mit3 || ""];
+      setYMits(mits);
+      if (data.done_note) {
+        try {
+          const parsed = JSON.parse(data.done_note);
+          if (Array.isArray(parsed) && parsed.length === 3) setYChecks(parsed);
+        } catch {}
+      }
+      // 昨日がまるごと未入力なら、振り返りセクションを自動展開（入力忘れ防止）
+      if (!mits[0] && !mits[1] && !mits[2]) setYExpanded(true);
+      setYLoaded(true);
+    }).catch(() => { setYLoaded(true); });
   }, []);
 
   const avgScore = Math.round((scores.rel + scores.money + scores.work + scores.health) / 4);
@@ -266,6 +298,50 @@ export default function TodayPage() {
         memoRaw: memo || null,
       }),
     });
+  };
+
+  // ===== 昨日の後追い入力 =====
+  const updateYMit = (idx: number, val: string) => {
+    const next = [...yMits];
+    next[idx] = val;
+    setYMits(next);
+  };
+  const toggleYCheck = (idx: number) => {
+    const next = [...yChecks];
+    next[idx] = !next[idx];
+    setYChecks(next);
+    // チェックは即時保存（昨日の date 指定）
+    fetch("/api/daylog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: yStr,
+        mit1: yMits[0] || null,
+        mit2: yMits[1] || null,
+        mit3: yMits[2] || null,
+        doneNote: JSON.stringify(next),
+      }),
+    }).catch(() => {});
+  };
+  const saveYesterday = async () => {
+    try {
+      const res = await fetch("/api/daylog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: yStr,
+          mit1: yMits[0] || null,
+          mit2: yMits[1] || null,
+          mit3: yMits[2] || null,
+          doneNote: JSON.stringify(yChecks),
+        }),
+      });
+      if (!res.ok) throw new Error("保存失敗");
+      setYSavedFlash(true);
+      setTimeout(() => setYSavedFlash(false), 2000);
+    } catch {
+      alert("昨日の入力の保存に失敗しました。通信をご確認ください。");
+    }
   };
 
   return (
@@ -493,6 +569,75 @@ export default function TodayPage() {
           ))}
         </div>
       </section>
+
+      {/* 昨日の後追い入力（入力忘れリカバリ） */}
+      {yLoaded && (
+        <section className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setYExpanded((v) => !v)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-100 transition"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">⏰</span>
+              <div className="text-left">
+                <h2 className="text-sm font-bold text-blue-900">
+                  昨日（{yMmdd}）の振り返り
+                </h2>
+                <p className="text-[10px] text-blue-700">
+                  {yMits.some((m) => m)
+                    ? "やったことをチェック ✓"
+                    : "入力忘れた？ 後から記入できます"}
+                </p>
+              </div>
+            </div>
+            <span className="text-blue-600 text-sm">{yExpanded ? "▲" : "▼"}</span>
+          </button>
+          {yExpanded && (
+            <div className="px-4 pb-4 space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 bg-white rounded-lg p-2 shadow-sm"
+                >
+                  <button
+                    onClick={() => toggleYCheck(i)}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 transition-all ${
+                      yChecks[i]
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-100 text-gray-400 border border-gray-300"
+                    }`}
+                  >
+                    {yChecks[i] ? "✓" : i + 1}
+                  </button>
+                  <input
+                    type="text"
+                    value={yMits[i]}
+                    onChange={(e) => updateYMit(i, e.target.value)}
+                    placeholder={`昨日やったこと ${i + 1}`}
+                    className={`flex-1 text-sm outline-none bg-transparent ${
+                      yChecks[i] ? "line-through text-gray-400" : ""
+                    }`}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={saveYesterday}
+                className={`w-full py-2 rounded-lg text-sm font-medium transition-all ${
+                  ySavedFlash
+                    ? "bg-green-500 text-white"
+                    : "bg-blue-500 hover:bg-blue-600 text-white"
+                }`}
+              >
+                {ySavedFlash ? "✓ 昨日の入力を保存しました" : "昨日の入力を保存"}
+              </button>
+              <p className="text-[10px] text-blue-700 text-center">
+                チェックは押した瞬間に自動保存されます
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ちょっとしたメモ */}
       <section>

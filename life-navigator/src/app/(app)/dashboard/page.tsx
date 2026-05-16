@@ -153,6 +153,56 @@ export default function DashboardPage() {
           })}
         </div>
       </section>
+
+      {/* 週次振り返り誘導 */}
+      <section className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="text-3xl">🌟</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-900">1 週間を振り返る</p>
+            <p className="text-xs text-amber-700 mt-1">AI と一緒に今週を振り返り、来週の一歩を決めましょう</p>
+            <button
+              onClick={() => router.push("/review/weekly")}
+              className="mt-3 w-full bg-amber-500 text-white font-bold py-2 rounded-xl text-sm shadow"
+            >
+              振り返りを始める →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 月次振り返り誘導 */}
+      <section className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <span className="text-3xl">🌙</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-blue-900">1 ヶ月を振り返る</p>
+            <p className="text-xs text-blue-700 mt-1">月単位で大きな変化と方向性を見つめ、来月のテーマを決めましょう</p>
+            <button
+              onClick={() => router.push("/review/monthly")}
+              className="mt-3 w-full bg-blue-500 text-white font-bold py-2 rounded-xl text-sm shadow"
+            >
+              月の振り返りを始める →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 使い方ガイド + 履歴 */}
+      <div className="flex gap-2 text-center text-xs">
+        <button
+          onClick={() => router.push("/guide")}
+          className="flex-1 bg-amber-100 text-amber-800 rounded-lg py-2 hover:bg-amber-200 font-medium"
+        >
+          📖 夢ナビの使い方
+        </button>
+        <button
+          onClick={() => router.push("/review/history")}
+          className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-2 hover:bg-gray-200"
+        >
+          📚 過去の振り返り
+        </button>
+      </div>
     </div>
   );
 }

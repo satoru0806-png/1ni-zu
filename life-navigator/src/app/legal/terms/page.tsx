@@ -118,7 +118,7 @@ export default function TermsPage() {
       <h2>第 12 条（お問い合わせ）</h2>
       <ul>
         <li>事業者: 飯村悟（屋号: ドリームズ）</li>
-        <li>所在地: 福島県白河市立石105-1</li>
+        <li>所在地: 福島県白河市立石201-4</li>
         <li>メール: satoru0806@gmail.com</li>
       </ul>
 

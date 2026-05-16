@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { SpeakNotePaste } from "@/components/SpeakNotePaste";
 import "./globals.css";
 
 
@@ -33,6 +34,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body className={`${geistSans.variable} antialiased bg-gray-50 text-gray-900`}>
+        <SpeakNotePaste />
         {children}
       </body>
     </html>

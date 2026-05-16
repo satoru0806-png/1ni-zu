@@ -15,6 +15,22 @@
     {
       "path": "/api/weekly",
       "schedule": "0 0 * * 0"
+    },
+    {
+      "path": "/api/cron/review-reminder",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/review-reminder",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/review-reminder",
+      "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/review-reminder",
+      "schedule": "0 21 * * *"
     }
   ]
 }

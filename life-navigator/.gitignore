@@ -46,3 +46,6 @@ next-env.d.ts
 
 # SpeakNote ローカル連絡先 DB (秘匿)
 /src/lib/speaknote-contacts.local.ts
+
+# Prisma ローカル SQLite DB
+/prisma/dev.db

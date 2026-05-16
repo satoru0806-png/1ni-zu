@@ -713,12 +713,22 @@ function HistoryContent() {
           return (
             <div
               key={day.date}
-              className={`bg-white rounded-xl p-4 shadow-sm ${isEmpty ? "opacity-50" : "cursor-pointer hover:bg-gray-50"}`}
-              onClick={() => !isEmpty && setSelected(day)}
+              className={`bg-white rounded-xl p-4 shadow-sm cursor-pointer hover:bg-gray-50 ${isEmpty ? "opacity-70" : ""}`}
+              onClick={() => {
+                setSelected(day);
+                // 空の日 → 即座に編集モードへ
+                if (isEmpty) {
+                  setEdit({ ...day });
+                  setEditing(true);
+                  editInitialLoad.current = true;
+                  setAutoSaveStatus("idle");
+                  setTimeout(() => { editInitialLoad.current = false; }, 800);
+                }
+              }}
             >
               <h3 className="text-sm font-bold">{formatDate(day.date)}</h3>
               {isEmpty ? (
-                <p className="text-xs text-gray-400 mt-1">記録なし</p>
+                <p className="text-xs text-amber-500 mt-1">📝 記録なし — タップして追記できます</p>
               ) : (
                 <div className="mt-1 text-xs text-gray-500 space-y-0.5">
                   {day.ai_diary && <p className="truncate text-purple-600">🤖 {day.ai_diary}</p>}

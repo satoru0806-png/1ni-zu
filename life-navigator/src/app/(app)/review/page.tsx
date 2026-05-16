@@ -125,6 +125,35 @@ export default function ReviewPage() {
         <p className="text-sm opacity-90">今日も一日がんばったね。少し話を聞かせて。</p>
       </div>
 
+      {/* 週次・月次 振り返りへのアクセス */}
+      <section className="space-y-2">
+        <h3 className="text-xs font-bold text-gray-500 px-1">もっと長いスパンで振り返る</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href="/review/weekly"
+            className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 hover:shadow-md transition"
+          >
+            <div className="text-2xl mb-1">🌟</div>
+            <p className="text-sm font-bold text-amber-900">1 週間</p>
+            <p className="text-[10px] text-amber-700 mt-0.5">来週の MIT を AI と一緒に</p>
+          </a>
+          <a
+            href="/review/monthly"
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-3 hover:shadow-md transition"
+          >
+            <div className="text-2xl mb-1">🌙</div>
+            <p className="text-sm font-bold text-blue-900">1 ヶ月</p>
+            <p className="text-[10px] text-blue-700 mt-0.5">来月のテーマを決める</p>
+          </a>
+        </div>
+        <a
+          href="/review/history"
+          className="block text-center text-xs text-gray-500 underline py-1 hover:text-amber-700"
+        >
+          📚 過去の振り返り一覧
+        </a>
+      </section>
+
       {/* AI診断結果（あれば表示） */}
       {(aiDiary || aiAdvice) && (
         <section className="bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-4 shadow-sm space-y-3">

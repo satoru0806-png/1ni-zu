@@ -107,12 +107,25 @@ export async function registerToAsmel(
           "Mozilla/5.0 (compatible; YumeNaviBot/1.0; +https://life-navigator-peach.vercel.app)",
       },
       body: form.toString(),
+      // リダイレクト追従しない（302/303 を確認用）
+      redirect: "manual",
       // 30秒以内に応答ないと諦める
       signal: AbortSignal.timeout(30000),
     });
 
+    // 302 / 303 リダイレクト = 登録成功（complete ページへ誘導）
+    if (res.status === 302 || res.status === 303) {
+      const loc = res.headers.get("location") || "";
+      if (/action=complete/.test(loc)) {
+        console.log("[Asmel] " + res.status + " redirect → registered (complete)");
+        return { ok: true, status: "registered" };
+      }
+      console.log("[Asmel] " + res.status + " redirect → registered (location: " + loc.slice(0, 100) + ")");
+      return { ok: true, status: "registered" };
+    }
+
     // ネットワーク層のエラー（403 / 500 等）
-    if (!res.ok && res.status !== 302) {
+    if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error("[Asmel] HTTP error:", res.status, detail.slice(0, 300));
       return {
@@ -122,13 +135,7 @@ export async function registerToAsmel(
       };
     }
 
-    // 302 リダイレクト = 通常は成功（完了ページへ誘導）
-    if (res.status === 302) {
-      console.log("[Asmel] 302 redirect → registered");
-      return { ok: true, status: "registered" };
-    }
-
-    // 200 OK の HTML を解析
+    // 200 OK の HTML を解析（重複登録や入力不備など）
     const html = await res.text();
     const result = classifyResponse(html);
 
