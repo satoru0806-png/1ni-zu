@@ -12,6 +12,11 @@ export default function SettingsPage() {
   const [missionSaved, setMissionSaved] = useState(false);
   const [missionSaving, setMissionSaving] = useState(false);
 
+  // お名前（AI が呼びかける名前）
+  const [displayName, setDisplayName] = useState("");
+  const [nameSaved, setNameSaved] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+
   // 振り返り設定
   const [weekStartDay, setWeekStartDay] = useState(1); // 0=日, 1=月
   const [weeklyReviewDay, setWeeklyReviewDay] = useState(0); // 0=日曜
@@ -41,6 +46,7 @@ export default function SettingsPage() {
     fetch("/api/user/review-settings")
       .then((r) => r.json())
       .then((d) => {
+        if (typeof d.displayName === "string") setDisplayName(d.displayName);
         if (typeof d.weekStartDay === "number") setWeekStartDay(d.weekStartDay);
         if (typeof d.weeklyReviewDay === "number") setWeeklyReviewDay(d.weeklyReviewDay);
         if (typeof d.weeklyReviewHour === "number") setWeeklyReviewHour(d.weeklyReviewHour);
@@ -49,6 +55,28 @@ export default function SettingsPage() {
       })
       .catch(() => {});
   }, []);
+
+  const saveName = async () => {
+    setNameSaving(true);
+    try {
+      const res = await fetch("/api/user/review-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      if (res.ok) {
+        setNameSaved(true);
+        setTimeout(() => setNameSaved(false), 2000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert("保存失敗: " + (err.error || "不明なエラー"));
+      }
+    } catch (e) {
+      alert("通信エラー: " + (e as Error).message);
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   const saveReviewSettings = async () => {
     setReviewSaving(true);
@@ -140,6 +168,33 @@ export default function SettingsPage() {
             className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm disabled:opacity-50"
           >
             {missionSaving ? "保存中..." : missionSaved ? "✅ 保存しました" : "ミッションを保存"}
+          </button>
+        </div>
+      </section>
+
+      {/* お名前 */}
+      <section className="bg-white rounded-xl p-4 shadow-sm">
+        <h3 className="text-sm font-bold text-pink-600 mb-2">👤 お名前</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          振り返りのときに AI があなたを呼ぶ名前です。<br />
+          ニックネームでも構いません（例: 悟、さとるさん など）。
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="お名前 / ニックネーム"
+            maxLength={40}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400"
+          />
+          <button
+            type="button"
+            onClick={saveName}
+            disabled={nameSaving}
+            className="bg-pink-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm disabled:opacity-50 whitespace-nowrap"
+          >
+            {nameSaving ? "保存中..." : nameSaved ? "✅ 保存" : "名前を保存"}
           </button>
         </div>
       </section>

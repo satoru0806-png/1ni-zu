@@ -19,7 +19,7 @@ async function fetchMonthData(supabase: ReturnType<typeof createAdminClient>, us
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("mission, display_name, full_name, plan")
+    .select("mission, plan")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -97,6 +97,10 @@ async function handlePost(req: NextRequest) {
 
   const supabase = createAdminClient();
 
+  // お名前は auth のユーザーメタデータから取得。未設定なら「あなた」
+  const displayName = ((user.user_metadata?.display_name as string) || "").trim();
+  const callName = displayName ? `${displayName}さん` : "あなた";
+
   let { data: existing } = await supabase
     .from("monthly_reflections")
     .select("*")
@@ -116,7 +120,6 @@ async function handlePost(req: NextRequest) {
   // === Action 1: summary ===
   if (action === "summary") {
     const { logs, profile, goals, weeklies } = await fetchMonthData(supabase, user.id, monthStart);
-    const userName = profile?.display_name || profile?.full_name || "あなた";
 
     const totalDays = logs.length;
     const recordedDays = logs.filter((l) => l.mit1 || l.mit2 || l.mit3 || l.memo_raw || l.gratitude_note).length;
@@ -132,14 +135,14 @@ async function handlePost(req: NextRequest) {
 
     const goalsBlock = goals.map((g) => `・${g.title}（進捗 ${g.progress}%${g.deadline ? `, 期限 ${g.deadline}` : ""}）`).join("\n") || "（未設定）";
 
-    const system = `あなたは温かく寄り添うパーソナルメンターです。${userName}さんの 1 ヶ月の振り返りを支援します。
-口調: 敬語、優しく丁寧に、「${userName}さん」と呼びかける。
+    const system = `あなたは温かく寄り添うパーソナルメンターです。${callName}の 1 ヶ月の振り返りを支援します。
+口調: 敬語、優しく丁寧に、「${callName}」と呼びかける。
 役割: 1ヶ月の客観的なサマリーを提供する。週次の振り返りデータも参照しながら、月全体の流れと変化を映す。
 重要: 評価しない。月という大きな単位での「あなたの航海記録」を提示するイメージ。
 
 分量: 300〜500 文字程度。読みやすく改行を入れる。`;
 
-    const userMsg = `${userName}さんのミッション: ${profile?.mission || "（未設定）"}
+    const userMsg = `${callName}のミッション: ${profile?.mission || "（未設定）"}
 進行中のゴール:
 ${goalsBlock}
 
@@ -152,7 +155,7 @@ ${goalsBlock}
 【今月の各週の振り返り】
 ${weekliesBlock}
 
-これを踏まえ、${userName}さんの今月を温かく振り返るサマリーを書いてください。`;
+これを踏まえ、${callName}の今月を温かく振り返るサマリーを書いてください。`;
 
     const summary = await callAI(system, [{ role: "user", content: userMsg }], 800);
 
@@ -169,31 +172,30 @@ ${weekliesBlock}
     if (!userText) return NextResponse.json({ error: "userText is required" }, { status: 400 });
 
     const { profile } = await fetchMonthData(supabase, user.id, monthStart);
-    const userName = profile?.display_name || profile?.full_name || "あなた";
 
-    const system = `あなたは温かく寄り添うパーソナルメンターです。${userName}さんが書いた1ヶ月の振り返りに対してフィードバックを返します。
-口調: 敬語、優しく丁寧に、「${userName}さん」と呼びかける。
-役割: ${userName}さん自身では気づきにくい、月単位での大きな変化や流れ・本質的な傾向を提示する。
+    const system = `あなたは温かく寄り添うパーソナルメンターです。${callName}が書いた1ヶ月の振り返りに対してフィードバックを返します。
+口調: 敬語、優しく丁寧に、「${callName}」と呼びかける。
+役割: ${callName}自身では気づきにくい、月単位での大きな変化や流れ・本質的な傾向を提示する。
 
 重要な原則:
 1. 評価したり説教したりしない
 2. 月という長いスパンならではの「変化の軌跡」を見出す
-3. ${userName}さんの言葉から繰り返し出てくるテーマを引用しながら新しい視点を提供
+3. ${callName}の言葉から繰り返し出てくるテーマを引用しながら新しい視点を提供
 4. 「気づき1」「気づき2」のように 2〜3 個の視点を箇条書きで示す
 5. 最後に「来月の方向性を一緒に考えませんか?」と次のステップへ誘う
 
 分量: 400〜700 文字。`;
 
     const summary = existing?.ai_summary || "";
-    const userMsg = `${userName}さんのミッション: ${profile?.mission || "（未設定）"}
+    const userMsg = `${callName}のミッション: ${profile?.mission || "（未設定）"}
 
 【AIが生成した今月のサマリー】
 ${summary}
 
-【${userName}さん自身の言葉での振り返り】
+【${callName}自身の言葉での振り返り】
 ${userText}
 
-これを踏まえ、${userName}さんが気づいていない月単位の視点を温かく、敬語でフィードバックしてください。`;
+これを踏まえ、${callName}が気づいていない月単位の視点を温かく、敬語でフィードバックしてください。`;
 
     const feedback = await callAI(system, [{ role: "user", content: userMsg }], 1000);
 
@@ -211,10 +213,9 @@ ${userText}
     const finalize = body.finalize === true;
 
     const { profile, goals } = await fetchMonthData(supabase, user.id, monthStart);
-    const userName = profile?.display_name || profile?.full_name || "あなた";
 
     if (finalize) {
-      const system = `あなたは温かく寄り添うパーソナルメンターです。${userName}さんと来月について話し合った結果から、来月の方向性を確定します。
+      const system = `あなたは温かく寄り添うパーソナルメンターです。${callName}と来月について話し合った結果から、来月の方向性を確定します。
 出力は厳密な JSON 形式のみ。
 
 {
@@ -229,8 +230,8 @@ ${userText}
 重点テーマは「健康に向き合う月」「人間関係を整える月」のような感情と方向性が伝わる短文。
 目標は具体的・行動可能、3つ以内。`;
 
-      const dialogueText = dialogue.map((m) => `${m.role === "user" ? userName + "さん" : "AI"}: ${m.content}`).join("\n\n");
-      const userMsg = `これまでの${userName}さんとの対話:\n\n${dialogueText}\n\nこれをもとに、来月のテーマと目標を JSON 形式で出力してください。`;
+      const dialogueText = dialogue.map((m) => `${m.role === "user" ? callName : "AI"}: ${m.content}`).join("\n\n");
+      const userMsg = `これまでの${callName}との対話:\n\n${dialogueText}\n\nこれをもとに、来月のテーマと目標を JSON 形式で出力してください。`;
 
       const raw = await callAI(system, [{ role: "user", content: userMsg }], 500);
       const match = raw.match(/\{[\s\S]*\}/);
@@ -255,14 +256,14 @@ ${userText}
 
     const goalsBlock = goals.map((g) => `・${g.title}`).join("\n") || "（未設定）";
 
-    const system = `あなたは温かく寄り添うパーソナルメンターです。${userName}さんと「来月どう過ごしたいか」を一緒に考えます。
-口調: 敬語、優しく丁寧に、「${userName}さん」と呼びかける。
+    const system = `あなたは温かく寄り添うパーソナルメンターです。${callName}と「来月どう過ごしたいか」を一緒に考えます。
+口調: 敬語、優しく丁寧に、「${callName}」と呼びかける。
 
 役割:
-1. ${userName}さんの言葉を受けて、共感しつつ深める
+1. ${callName}の言葉を受けて、共感しつつ深める
 2. 月という長いスパンならではのテーマや方向性を一緒に探す
 3. 具体的な目標が3つ程度に絞れてきたら「これでまとめましょうか?」と確認
-4. 強要せず、${userName}さんが「これだ」と思える形に寄り添う
+4. 強要せず、${callName}が「これだ」と思える形に寄り添う
 
 分量: 1ターン100〜200文字。`;
 
@@ -270,7 +271,7 @@ ${userText}
     if (userMessage) newDialogue.push({ role: "user", content: userMessage });
 
     const messages = newDialogue.length === 0
-      ? [{ role: "user" as const, content: `（最初のターン）${userName}さんのミッション: ${profile?.mission || "（未設定）"}\nゴール:\n${goalsBlock}\n\n今月の振り返り:\n${existing?.user_text || "(なし)"}\n\nAIフィードバック:\n${existing?.ai_feedback || "(なし)"}\n\nこれを踏まえて、${userName}さんに「来月どんな1ヶ月にしたいですか?」と最初の問いかけをしてください。` }]
+      ? [{ role: "user" as const, content: `（最初のターン）${callName}のミッション: ${profile?.mission || "（未設定）"}\nゴール:\n${goalsBlock}\n\n今月の振り返り:\n${existing?.user_text || "(なし)"}\n\nAIフィードバック:\n${existing?.ai_feedback || "(なし)"}\n\nこれを踏まえて、${callName}に「来月どんな1ヶ月にしたいですか?」と最初の問いかけをしてください。` }]
       : newDialogue.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     const aiMsg = await callAI(system, messages, 500);

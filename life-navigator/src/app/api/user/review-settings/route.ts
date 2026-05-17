@@ -17,7 +17,11 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // お名前は auth のユーザーメタデータに保存している
+  const displayName = (user.user_metadata?.display_name as string) || "";
+
   return NextResponse.json({
+    displayName,
     weekStartDay: data?.week_start_day ?? 1,
     weeklyReviewDay: data?.weekly_review_day ?? 0,
     weeklyReviewHour: data?.weekly_review_hour ?? 21,
@@ -31,8 +35,21 @@ export async function POST(req: NextRequest) {
   if (authError) return authError;
 
   const body = await req.json().catch(() => ({}));
-  const updates: Record<string, unknown> = {};
+  const supabase = createAdminClient();
+  let changed = false;
 
+  // お名前（auth のユーザーメタデータに保存。profiles に名前カラムが無いため）
+  if (typeof body.displayName === "string") {
+    const name = body.displayName.trim().slice(0, 40);
+    const { error: nameErr } = await supabase.auth.admin.updateUserById(user.id, {
+      user_metadata: { ...(user.user_metadata || {}), display_name: name },
+    });
+    if (nameErr) return NextResponse.json({ error: nameErr.message }, { status: 500 });
+    changed = true;
+  }
+
+  // 振り返り設定（profiles テーブル）
+  const updates: Record<string, unknown> = {};
   if (typeof body.weekStartDay === "number" && body.weekStartDay >= 0 && body.weekStartDay <= 6) {
     updates.week_start_day = body.weekStartDay;
   }
@@ -49,17 +66,18 @@ export async function POST(req: NextRequest) {
     updates.monthly_review_remind = body.monthlyReviewRemind;
   }
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    changed = true;
   }
 
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("user_id", user.id);
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!changed) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
 
   return NextResponse.json({ ok: true });
 }
